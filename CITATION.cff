@@ -5,7 +5,8 @@ type: software
 version: 0.1.0
 date-released: 2026-08-30
 authors:
-  - family-names: "CXL"
+  - family-names: "XianlinChen"
+    email: "chenxl@sehemodel.club"
 repository-code: "https://github.com/XianlinChenCelian/easy_wrf-hydro_build"
 license: MIT
 keywords:

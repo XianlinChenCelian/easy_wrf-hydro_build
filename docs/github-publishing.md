@@ -14,7 +14,7 @@ easy_wrf-hydro_build
 Suggested About description:
 
 ```text
-Reproducible WRF-Hydro dependency builds, Intel/GNU compiler routing, runtime environments, and example verification for Linux, WSL2, and VMs.
+An open-source build helper for deploying the WRF-Hydro offline model on Linux, WSL2, and VMs.
 ```
 
 Suggested topics:

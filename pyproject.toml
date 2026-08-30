@@ -7,7 +7,7 @@ name = "easy-wrf-hydro-build"
 version = "0.1.0"
 description = "Reproducible WRF-Hydro dependency and compile helper for existing Linux environments."
 authors = [
-    { name = "CXL" }
+    { name = "XianlinChen", email = "chenxl@sehemodel.club" }
 ]
 keywords = ["wrf-hydro", "hydrology", "netcdf", "mpi", "scientific-computing"]
 requires-python = ">=3.9"
