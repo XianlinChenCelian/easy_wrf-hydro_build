@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-label="easy_wrf-hydro_build architecture">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 10; }
+      .box-dark { fill: #0f172a; stroke: #0f172a; stroke-width: 2; rx: 10; }
+      .title { fill: #0f172a; font: 700 20px Arial, sans-serif; }
+      .text { fill: #334155; font: 15px Arial, sans-serif; }
+      .white { fill: #ffffff; font: 700 20px Arial, sans-serif; }
+      .small-white { fill: #dbeafe; font: 14px Arial, sans-serif; }
+      .arrow { stroke: #0284c7; stroke-width: 4; fill: none; marker-end: url(#arrow); }
+      .tag { fill: #e0f2fe; stroke: #7dd3fc; stroke-width: 1; rx: 14; }
+      .tag-text { fill: #075985; font: 13px Arial, sans-serif; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0284c7"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="960" height="360"/>
+
+  <rect class="box" x="40" y="58" width="170" height="108"/>
+  <text class="title" x="68" y="96">Source Archives</text>
+  <text class="text" x="68" y="124">WRF-Hydro</text>
+  <text class="text" x="68" y="146">zlib / HDF5</text>
+
+  <rect class="box" x="40" y="202" width="170" height="98"/>
+  <text class="title" x="78" y="240">Linux Shell</text>
+  <text class="text" x="68" y="268">WSL2 / VM / Linux</text>
+
+  <path class="arrow" d="M220 116 H302"/>
+  <path class="arrow" d="M220 250 H302"/>
+
+  <rect class="box-dark" x="320" y="44" width="260" height="124"/>
+  <text class="white" x="404" y="82">Intel Path</text>
+  <text class="small-white" x="354" y="114">ifort + icc + mpiifort</text>
+  <text class="small-white" x="366" y="140">prefix: intel_libs</text>
+
+  <rect class="box-dark" x="320" y="196" width="260" height="124"/>
+  <text class="white" x="414" y="234">GNU Path</text>
+  <text class="small-white" x="354" y="266">gcc + gfortran + mpif90</text>
+  <text class="small-white" x="376" y="292">prefix: gnu_libs</text>
+
+  <path class="arrow" d="M590 106 H672"/>
+  <path class="arrow" d="M590 258 H672"/>
+
+  <rect class="box" x="690" y="58" width="220" height="108"/>
+  <text class="title" x="736" y="96">WRF-Hydro Build</text>
+  <text class="text" x="728" y="124">configure + macros</text>
+  <text class="text" x="724" y="146">NoahMP / Noah offline</text>
+
+  <rect class="box" x="690" y="202" width="220" height="98"/>
+  <text class="title" x="740" y="240">Runtime Ready</text>
+  <text class="text" x="724" y="268">env script + ldd check</text>
+
+  <path class="arrow" d="M800 170 V194"/>
+
+  <rect class="tag" x="294" y="168" width="116" height="28"/>
+  <text class="tag-text" x="314" y="187">one command</text>
+  <rect class="tag" x="440" y="168" width="150" height="28"/>
+  <text class="tag-text" x="460" y="187">reproducible logs</text>
+</svg>

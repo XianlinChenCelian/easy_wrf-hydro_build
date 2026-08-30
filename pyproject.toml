@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easy-wrf-hydro-build"
+version = "0.1.0"
+description = "Reproducible WRF-Hydro dependency and compile helper for existing Linux environments."
+authors = [
+    { name = "CXL" }
+]
+keywords = ["wrf-hydro", "hydrology", "netcdf", "mpi", "scientific-computing"]
+requires-python = ">=3.9"
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Hydrology",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/XianlinChenCelian/easy_wrf-hydro_build"
+Repository = "https://github.com/XianlinChenCelian/easy_wrf-hydro_build"
+Issues = "https://github.com/XianlinChenCelian/easy_wrf-hydro_build/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+ewhb = "easy_wrf_hydro_build.cli:main"
+easy-wrf-hydro-build = "easy_wrf_hydro_build.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["easy_wrf_hydro_build*"]
+
+[tool.ruff]
+line-length = 100

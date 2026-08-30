@@ -1,0 +1,43 @@
+name: Successful verification
+description: Add a tested compiler, Linux, or WRF-Hydro combination.
+title: "[Verified]: "
+labels: ["verification"]
+body:
+  - type: input
+    id: platform
+    attributes:
+      label: Linux environment
+      placeholder: Ubuntu version and native Linux, WSL2, or VM
+    validations:
+      required: true
+  - type: input
+    id: compiler
+    attributes:
+      label: Compiler and MPI
+      placeholder: gfortran ...; OpenMPI ...
+    validations:
+      required: true
+  - type: textarea
+    id: archives
+    attributes:
+      label: Archive versions
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Results
+      description: State whether dependencies, WRF-Hydro, ldd, and the example each succeeded.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Required patches or notes
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: This report contains no private archives, credentials, or license information.
+          required: true

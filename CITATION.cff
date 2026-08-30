@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software in research or teaching, please cite it."
+title: "easy_wrf-hydro_build"
+type: software
+version: 0.1.0
+date-released: 2026-08-30
+authors:
+  - family-names: "CXL"
+repository-code: "https://github.com/XianlinChenCelian/easy_wrf-hydro_build"
+license: MIT
+keywords:
+  - WRF-Hydro
+  - hydrology
+  - NetCDF
+  - MPI
+  - reproducible build

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="easy_wrf-hydro_build social preview">
+  <rect width="1280" height="640" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1280" height="18" fill="#0f766e"/>
+  <rect x="82" y="92" width="132" height="132" rx="18" fill="#0f172a"/>
+  <path d="M108 176c12-25 22-38 35-38 16 0 19 25 35 25 10 0 16-8 25-25" fill="none" stroke="#38bdf8" stroke-width="10" stroke-linecap="round"/>
+  <path d="M108 191h95" stroke="#e2e8f0" stroke-width="9" stroke-linecap="round"/>
+  <path d="M124 120h63M124 138h35" stroke="#a7f3d0" stroke-width="8" stroke-linecap="round"/>
+  <text x="250" y="142" fill="#0f172a" font-family="Arial, sans-serif" font-size="54" font-weight="700">easy_wrf-hydro_build</text>
+  <text x="252" y="199" fill="#334155" font-family="Arial, sans-serif" font-size="27">Reproducible WRF-Hydro builds for Linux, WSL2, and VMs</text>
+  <line x1="82" y1="284" x2="1198" y2="284" stroke="#cbd5e1" stroke-width="2"/>
+  <rect x="82" y="344" width="330" height="112" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+  <rect x="475" y="344" width="330" height="112" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+  <rect x="868" y="344" width="330" height="112" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+  <text x="116" y="389" fill="#0f172a" font-family="Arial, sans-serif" font-size="24" font-weight="700">Compiler consistency</text>
+  <text x="116" y="426" fill="#475569" font-family="Arial, sans-serif" font-size="20">Intel + GNU routes</text>
+  <text x="509" y="389" fill="#0f172a" font-family="Arial, sans-serif" font-size="24" font-weight="700">Isolated dependencies</text>
+  <text x="509" y="426" fill="#475569" font-family="Arial, sans-serif" font-size="20">NetCDF ABI kept together</text>
+  <text x="902" y="389" fill="#0f172a" font-family="Arial, sans-serif" font-size="24" font-weight="700">End-to-end checks</text>
+  <text x="902" y="426" fill="#475569" font-family="Arial, sans-serif" font-size="20">Build, ldd, example run</text>
+  <rect x="82" y="520" width="164" height="42" rx="21" fill="#ccfbf1"/>
+  <text x="112" y="548" fill="#115e59" font-family="Arial, sans-serif" font-size="19" font-weight="700">WRF-Hydro 5.1.2</text>
+  <rect x="266" y="520" width="111" height="42" rx="21" fill="#dbeafe"/>
+  <text x="291" y="548" fill="#1e40af" font-family="Arial, sans-serif" font-size="19" font-weight="700">Python 3.9+</text>
+  <rect x="397" y="520" width="85" height="42" rx="21" fill="#fef3c7"/>
+  <text x="420" y="548" fill="#92400e" font-family="Arial, sans-serif" font-size="19" font-weight="700">MIT</text>
+</svg>

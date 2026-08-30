@@ -1,0 +1,68 @@
+name: Build failure
+description: Report a reproducible dependency or WRF-Hydro compile failure.
+title: "[Build]: "
+labels: ["build", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Remove passwords, license data, and private paths before posting logs.
+  - type: dropdown
+    id: compiler-family
+    attributes:
+      label: Compiler family
+      options:
+        - Intel classic (ifort)
+        - Intel oneAPI with ifort
+        - Intel oneAPI with ifx
+        - GNU
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Linux environment
+      description: Distribution/version and native Linux, WSL2, or VM.
+      placeholder: Ubuntu 22.04 on WSL2
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Compiler and MPI versions
+      placeholder: ifort 18.x; mpiifort ...
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Paste the exact ewhb command with private paths replaced.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: archive-inventory
+    attributes:
+      label: Archive versions
+      description: List zlib, HDF5, NetCDF-C, NetCDF-Fortran, and WRF-Hydro versions.
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: Failure and redacted log excerpt
+      description: Include the first real error and enough surrounding context.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed passwords, license information, and private data from this report.
+          required: true
+        - label: I searched existing issues and troubleshooting documentation.
+          required: true

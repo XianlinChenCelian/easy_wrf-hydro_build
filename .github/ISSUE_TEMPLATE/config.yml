@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: WRF-Hydro official resources
+    url: https://ral.ucar.edu/projects/wrf_hydro
+    about: Use official resources for model science and upstream WRF-Hydro questions.
