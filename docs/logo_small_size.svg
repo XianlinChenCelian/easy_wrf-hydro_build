@@ -1,6 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="easy_wrf-hydro_build logo">
-  <rect width="96" height="96" rx="14" fill="#0f172a"/>
-  <path d="M18 62c8-16 14-24 22-24 10 0 12 16 22 16 6 0 10-5 16-16" fill="none" stroke="#38bdf8" stroke-width="7" stroke-linecap="round"/>
-  <path d="M18 72h60" stroke="#e2e8f0" stroke-width="6" stroke-linecap="round"/>
-  <path d="M28 26h40M28 38h22" stroke="#a7f3d0" stroke-width="6" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="easy_wrf-hydro_build logo">
+  <defs>
+    <linearGradient id="badge-bg" x1="20" y1="16" x2="108" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#d7edf7"/>
+    </linearGradient>
+    <linearGradient id="river" x1="31" y1="25" x2="92" y2="103" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#48a9cf"/>
+      <stop offset="1" stop-color="#1d6f95"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.2" flood-color="#0f172a" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="128" height="128" fill="#2f3f4a"/>
+  <circle cx="64" cy="59" r="50" fill="url(#badge-bg)" stroke="#233642" stroke-width="3" filter="url(#soft-shadow)"/>
+
+  <g opacity="0.9" stroke="#93a8b3" stroke-width="2">
+    <path d="M30 43 H90"/>
+    <path d="M30 60 H97"/>
+    <path d="M31 78 H82"/>
+    <path d="M43 30 V92"/>
+    <path d="M61 25 V96"/>
+    <path d="M79 30 V87"/>
+  </g>
+
+  <path d="M36 94 C52 79 50 63 63 55 C75 48 74 34 89 28" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round"/>
+  <path d="M36 94 C52 79 50 63 63 55 C75 48 74 34 89 28" fill="none" stroke="url(#river)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M33 34 C27 43 24 50 24 57 C24 66 31 73 39 73 C47 73 54 66 54 57 C54 50 49 42 39 29 C37 31 35 33 33 34Z" fill="#4aa6ca" stroke="#1e5f80" stroke-width="2"/>
+
+  <g transform="translate(76 66)">
+    <circle cx="18" cy="18" r="13" fill="#d7dee2" stroke="#314652" stroke-width="3"/>
+    <circle cx="18" cy="18" r="5.5" fill="#f8fbff" stroke="#314652" stroke-width="2"/>
+    <g fill="#314652">
+      <rect x="16" y="-1" width="4" height="8" rx="1"/>
+      <rect x="16" y="29" width="4" height="8" rx="1"/>
+      <rect x="-1" y="16" width="8" height="4" rx="1"/>
+      <rect x="29" y="16" width="8" height="4" rx="1"/>
+      <rect x="4" y="4" width="7" height="4" rx="1" transform="rotate(-45 7.5 6)"/>
+      <rect x="25" y="26" width="7" height="4" rx="1" transform="rotate(-45 28.5 28)"/>
+      <rect x="25" y="4" width="7" height="4" rx="1" transform="rotate(45 28.5 6)"/>
+      <rect x="4" y="26" width="7" height="4" rx="1" transform="rotate(45 7.5 28)"/>
+    </g>
+  </g>
+
+  <text x="64" y="116" text-anchor="middle" fill="#f8fbff" font-family="Arial, sans-serif" font-size="12" font-weight="700">easy_wrf-hydro</text>
 </svg>

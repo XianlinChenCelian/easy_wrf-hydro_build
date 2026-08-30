@@ -1,4 +1,4 @@
-# easy_wrf-hydro_build [![easy_wrf-hydro_build Logo](docs/logo_small_size.svg)](https://github.com/XianlinChenCelian/easy_wrf-hydro_build)
+# easy_wrf-hydro_build [![easy_wrf-hydro_build Logo](docs/logo_small_size.png)](https://github.com/XianlinChenCelian/easy_wrf-hydro_build)
 
 This is an open-source build helper for deploying the WRF-Hydro offline model.
 

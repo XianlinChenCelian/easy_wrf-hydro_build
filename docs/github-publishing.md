@@ -24,7 +24,8 @@ wrf-hydro hydrology netcdf mpi intel-fortran gfortran openmpi wsl2 linux reprodu
 ```
 
 Use `docs/social-preview.png` as the repository social preview image. Use
-`docs/logo_small_size.svg` as the project logo in documents.
+`docs/logo_small_size.png` as the project logo in README-style documents, and
+keep `docs/logo_small_size.svg` as the editable vector source.
 
 ## Before the first push
 

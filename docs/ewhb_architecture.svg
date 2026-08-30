@@ -1,61 +1,132 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-label="easy_wrf-hydro_build architecture">
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="520" viewBox="0 0 1180 520" role="img" aria-label="easy_wrf-hydro_build architecture">
   <defs>
-    <style>
-      .bg { fill: #f8fafc; }
-      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 10; }
-      .box-dark { fill: #0f172a; stroke: #0f172a; stroke-width: 2; rx: 10; }
-      .title { fill: #0f172a; font: 700 20px Arial, sans-serif; }
-      .text { fill: #334155; font: 15px Arial, sans-serif; }
-      .white { fill: #ffffff; font: 700 20px Arial, sans-serif; }
-      .small-white { fill: #dbeafe; font: 14px Arial, sans-serif; }
-      .arrow { stroke: #0284c7; stroke-width: 4; fill: none; marker-end: url(#arrow); }
-      .tag { fill: #e0f2fe; stroke: #7dd3fc; stroke-width: 1; rx: 14; }
-      .tag-text { fill: #075985; font: 13px Arial, sans-serif; }
-    </style>
-    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0284c7"/>
+    <linearGradient id="page" x1="0" y1="0" x2="1180" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#edf6f3"/>
+    </linearGradient>
+    <linearGradient id="blue-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dff4ff"/>
+      <stop offset="1" stop-color="#bfe5f5"/>
+    </linearGradient>
+    <linearGradient id="green-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e7f4d7"/>
+      <stop offset="1" stop-color="#c8e6ad"/>
+    </linearGradient>
+    <linearGradient id="yellow-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff2bf"/>
+      <stop offset="1" stop-color="#f9d678"/>
+    </linearGradient>
+    <linearGradient id="river" x1="670" y1="138" x2="806" y2="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#43add4"/>
+      <stop offset="1" stop-color="#1f6f96"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="8" dy="10" stdDeviation="0" flood-color="#a6a6a6" flood-opacity="0.5"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto">
+      <path d="M1 1 L11 6 L1 11 Z" fill="#7aa13e"/>
     </marker>
+    <style>
+      .title { fill:#20313b; font:700 34px Arial, sans-serif; }
+      .subtitle { fill:#526674; font:18px Arial, sans-serif; }
+      .card-title { fill:#20313b; font:700 21px Arial, sans-serif; }
+      .card-text { fill:#344955; font:16px Arial, sans-serif; }
+      .tiny { fill:#5f7280; font:13px Arial, sans-serif; }
+      .tag { fill:#c5e0b4; stroke:#9bbb59; stroke-width:2; }
+      .tag-text { fill:#254117; font:700 14px Arial, sans-serif; }
+      .outline { stroke:#b0352f; stroke-width:3; }
+      .arrow { stroke:#7aa13e; stroke-width:10; fill:none; marker-end:url(#arrow); stroke-linecap:round; }
+      .soft-line { stroke:#7d98a8; stroke-width:2; fill:none; }
+    </style>
   </defs>
-  <rect class="bg" width="960" height="360"/>
 
-  <rect class="box" x="40" y="58" width="170" height="108"/>
-  <text class="title" x="68" y="96">Source Archives</text>
-  <text class="text" x="68" y="124">WRF-Hydro</text>
-  <text class="text" x="68" y="146">zlib / HDF5</text>
+  <rect width="1180" height="520" fill="url(#page)"/>
+  <rect x="0" y="0" width="1180" height="16" fill="#2f3f4a"/>
 
-  <rect class="box" x="40" y="202" width="170" height="98"/>
-  <text class="title" x="78" y="240">Linux Shell</text>
-  <text class="text" x="68" y="268">WSL2 / VM / Linux</text>
+  <g transform="translate(50 36)">
+    <circle cx="44" cy="44" r="38" fill="#f8fbff" stroke="#233642" stroke-width="3"/>
+    <path d="M23 64 C35 52 36 39 47 35 C56 31 58 19 68 15" fill="none" stroke="#20313b" stroke-width="11" stroke-linecap="round"/>
+    <path d="M23 64 C35 52 36 39 47 35 C56 31 58 19 68 15" fill="none" stroke="#43add4" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="66" cy="61" r="11" fill="#d7dee2" stroke="#314652" stroke-width="3"/>
+    <circle cx="66" cy="61" r="4" fill="#ffffff" stroke="#314652" stroke-width="2"/>
+    <text class="title" x="105" y="42">easy_wrf-hydro_build</text>
+    <text class="subtitle" x="107" y="72">WRF-Hydro offline model build workflow</text>
+  </g>
 
-  <path class="arrow" d="M220 116 H302"/>
-  <path class="arrow" d="M220 250 H302"/>
+  <g transform="translate(58 142)" filter="url(#shadow)">
+    <rect class="outline" width="190" height="118" rx="7" fill="url(#yellow-card)"/>
+    <circle class="tag" cx="28" cy="28" r="18"/>
+    <text class="tag-text" x="28" y="33" text-anchor="middle">1</text>
+    <text class="card-title" x="58" y="34">Source archives</text>
+    <text class="card-text" x="30" y="70">WRF-Hydro</text>
+    <text class="card-text" x="30" y="94">zlib / HDF5 / NetCDF</text>
+  </g>
 
-  <rect class="box-dark" x="320" y="44" width="260" height="124"/>
-  <text class="white" x="404" y="82">Intel Path</text>
-  <text class="small-white" x="354" y="114">ifort + icc + mpiifort</text>
-  <text class="small-white" x="366" y="140">prefix: intel_libs</text>
+  <g transform="translate(58 318)" filter="url(#shadow)">
+    <rect class="outline" width="190" height="112" rx="7" fill="#fff8da"/>
+    <circle class="tag" cx="28" cy="28" r="18"/>
+    <text class="tag-text" x="28" y="33" text-anchor="middle">2</text>
+    <text class="card-title" x="58" y="34">Linux shell</text>
+    <text class="card-text" x="30" y="72">Linux / WSL2 / VM</text>
+    <text class="tiny" x="30" y="96">no system-wide install</text>
+  </g>
 
-  <rect class="box-dark" x="320" y="196" width="260" height="124"/>
-  <text class="white" x="414" y="234">GNU Path</text>
-  <text class="small-white" x="354" y="266">gcc + gfortran + mpif90</text>
-  <text class="small-white" x="376" y="292">prefix: gnu_libs</text>
+  <path class="arrow" d="M274 201 H364"/>
+  <path class="arrow" d="M274 374 H364"/>
 
-  <path class="arrow" d="M590 106 H672"/>
-  <path class="arrow" d="M590 258 H672"/>
+  <g transform="translate(390 120)" filter="url(#shadow)">
+    <rect class="outline" width="255" height="132" rx="7" fill="url(#blue-card)"/>
+    <circle class="tag" cx="31" cy="31" r="19"/>
+    <text class="tag-text" x="31" y="36" text-anchor="middle">I</text>
+    <text class="card-title" x="66" y="38">Intel route</text>
+    <text class="card-text" x="36" y="78">ifort + mpiifort</text>
+    <text class="card-text" x="36" y="103">classic / oneAPI loader</text>
+    <path class="soft-line" d="M178 32 h44 m-22 -22 v44"/>
+    <circle cx="222" cy="32" r="16" fill="#ffffff" stroke="#4f7790" stroke-width="3"/>
+  </g>
 
-  <rect class="box" x="690" y="58" width="220" height="108"/>
-  <text class="title" x="736" y="96">WRF-Hydro Build</text>
-  <text class="text" x="728" y="124">configure + macros</text>
-  <text class="text" x="724" y="146">NoahMP / Noah offline</text>
+  <g transform="translate(390 300)" filter="url(#shadow)">
+    <rect class="outline" width="255" height="132" rx="7" fill="url(#green-card)"/>
+    <circle class="tag" cx="31" cy="31" r="19"/>
+    <text class="tag-text" x="31" y="36" text-anchor="middle">G</text>
+    <text class="card-title" x="66" y="38">GNU route</text>
+    <text class="card-text" x="36" y="78">gcc + gfortran</text>
+    <text class="card-text" x="36" y="103">OpenMPI mpif90</text>
+    <path class="soft-line" d="M184 34 h34 m-17 -17 v34"/>
+    <circle cx="218" cy="34" r="15" fill="#ffffff" stroke="#658b42" stroke-width="3"/>
+  </g>
 
-  <rect class="box" x="690" y="202" width="220" height="98"/>
-  <text class="title" x="740" y="240">Runtime Ready</text>
-  <text class="text" x="724" y="268">env script + ldd check</text>
+  <path class="arrow" d="M672 186 H745"/>
+  <path class="arrow" d="M672 366 H745"/>
 
-  <path class="arrow" d="M800 170 V194"/>
+  <g transform="translate(770 118)" filter="url(#shadow)">
+    <rect class="outline" width="180" height="312" rx="7" fill="#ffffff"/>
+    <text class="card-title" x="42" y="42">NetCDF stack</text>
+    <g transform="translate(44 72)">
+      <ellipse cx="46" cy="13" rx="46" ry="13" fill="#dff4ff" stroke="#446678" stroke-width="3"/>
+      <rect x="0" y="13" width="92" height="54" fill="#dff4ff" stroke="#446678" stroke-width="3"/>
+      <ellipse cx="46" cy="67" rx="46" ry="13" fill="#bfe5f5" stroke="#446678" stroke-width="3"/>
+      <text class="tiny" x="46" y="43" text-anchor="middle">HDF5</text>
+    </g>
+    <g transform="translate(44 174)">
+      <ellipse cx="46" cy="13" rx="46" ry="13" fill="#e7f4d7" stroke="#5b7d3b" stroke-width="3"/>
+      <rect x="0" y="13" width="92" height="54" fill="#e7f4d7" stroke="#5b7d3b" stroke-width="3"/>
+      <ellipse cx="46" cy="67" rx="46" ry="13" fill="#c8e6ad" stroke="#5b7d3b" stroke-width="3"/>
+      <text class="tiny" x="46" y="43" text-anchor="middle">NetCDF</text>
+    </g>
+    <text class="tiny" x="90" y="288" text-anchor="middle">intel_libs / gnu_libs</text>
+  </g>
 
-  <rect class="tag" x="294" y="168" width="116" height="28"/>
-  <text class="tag-text" x="314" y="187">one command</text>
-  <rect class="tag" x="440" y="168" width="150" height="28"/>
-  <text class="tag-text" x="460" y="187">reproducible logs</text>
+  <path class="arrow" d="M978 274 H1034"/>
+
+  <g transform="translate(1010 136)" filter="url(#shadow)">
+    <rect class="outline" width="126" height="254" rx="7" fill="url(#yellow-card)"/>
+    <text class="card-title" x="63" y="36" text-anchor="middle">Build</text>
+    <path d="M35 137 C48 122 48 98 63 90 C79 82 80 58 99 47" fill="none" stroke="#20313b" stroke-width="13" stroke-linecap="round"/>
+    <path d="M35 137 C48 122 48 98 63 90 C79 82 80 58 99 47" fill="none" stroke="url(#river)" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="88" cy="151" r="22" fill="#d7dee2" stroke="#314652" stroke-width="4"/>
+    <circle cx="88" cy="151" r="8" fill="#ffffff" stroke="#314652" stroke-width="3"/>
+    <text class="tiny" x="63" y="205" text-anchor="middle">macros</text>
+    <text class="tiny" x="63" y="226" text-anchor="middle">ldd + example</text>
+  </g>
 </svg>

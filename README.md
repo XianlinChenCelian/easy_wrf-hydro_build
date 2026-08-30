@@ -1,4 +1,4 @@
-# easy_wrf-hydro_build [![easy_wrf-hydro_build Logo](docs/logo_small_size.svg)](https://github.com/XianlinChenCelian/easy_wrf-hydro_build)
+# easy_wrf-hydro_build [![easy_wrf-hydro_build Logo](docs/logo_small_size.png)](https://github.com/XianlinChenCelian/easy_wrf-hydro_build)
 
 这是一个用于部署 WRF-Hydro 离线模型的开源构建辅助工具。
 
