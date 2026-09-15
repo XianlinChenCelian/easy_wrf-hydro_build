@@ -1,0 +1,65 @@
+# Command Reference
+
+[Documentation](index.md) · [Build guide](bootstrap.md)
+
+`ewhb --help` lists commands. Use `ewhb <command> --help` for current options.
+The CLI accepts command-line arguments; it does **not** load YAML configuration files.
+
+| Command | Purpose | Required paths |
+| --- | --- | --- |
+| `bootstrap` | Build local dependencies and WRF-Hydro | `--shared-dir`, `--prefix` |
+| `doctor` | Check an existing source and library environment | `--wrf-hydro-root`, `--netcdf` |
+| `compile` | Compile an existing WRF-Hydro tree | `--wrf-hydro-root`, `--netcdf` |
+| `write-env` | Write a runtime shell script | `--wrf-hydro-root`, `--netcdf`, `--output` |
+| `init-case` | Create case directories; does not prepare model input data | `--cases-home`, `--case-name` |
+
+## Bootstrap Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--compiler-family` | `intel` | `intel` or `gnu`; choose explicitly |
+| `--intel-home` | `~/intel/parallel_studio_xe_2018` | Intel installation root for bootstrap |
+| `--jobs` | Available CPU count | Parallel jobs for dependency `make` commands |
+| `--land-model` | `NoahMP` | `NoahMP` or `Noah` |
+| `--compiler-option` | Intel: `ifort`; GNU: `gfort` | WRF-Hydro configure label |
+| `--mpi-wrapper` | Intel: `mpiifort`; GNU: `mpif90` | Fortran wrapper written to `COMPILER90` |
+| `--dry-run` | Off | Discover archives and write the script without executing it |
+| `--skip-deps` | Off | Skip dependency builds if `nf-config` exists in this prefix |
+| `--run-example` | Off | Stage and run the local Croton testcase |
+| `--example-config` | `NWM` | `NWM`, `Gridded`, `Gridded_no_lakes`, `Reach`, `ReachLakes` |
+| `--example-np` | `1` | MPI process count for the example; distinct from build jobs |
+| `--profile` | `intel2018-linux` / `gnu-linux` | Script metadata label; does not select a different compatibility implementation |
+
+`--skip-deps` is for matching libraries already in `<prefix>/<family>_libs` and still requires the source archive inventory. It does not select an arbitrary external NetCDF directory. Use `compile` for that workflow.
+
+## Existing Dependencies
+
+These commands operate on the supplied WRF-Hydro source tree. The compile command runs configure, patches `macros` and writes build files there.
+
+```bash
+ewhb doctor --compiler-family gnu \
+  --wrf-hydro-root /path/to/wrf-hydro/trunk/NDHMS \
+  --netcdf /path/to/gnu-netcdf
+
+ewhb compile --compiler-family gnu \
+  --wrf-hydro-root /path/to/wrf-hydro/trunk/NDHMS \
+  --netcdf /path/to/gnu-netcdf --dry-run
+```
+
+For Intel, pass `--compiler-family intel --intel-home /path/to/intel` and use a NetCDF-Fortran library built with the matching compiler.
+`doctor` checks paths and commands; it does not prove ABI compatibility by compiling a test program.
+
+`compile`, `doctor` and `write-env` additionally accept `--spatial-soil`, `--nudging`, `--rapid` and `--debug`, each `0` or `1`. Bootstrap uses built-in model flags; these four flags are not bootstrap options.
+
+## Environment and Case Directories
+
+```bash
+ewhb write-env --compiler-family gnu \
+  --wrf-hydro-root /path/to/wrf-hydro/trunk/NDHMS \
+  --netcdf /path/to/gnu-netcdf \
+  --output ~/wrf_hydro_gnu_env.sh
+
+ewhb init-case --cases-home ~/wrfhydro-cases --case-name example
+```
+
+Environment scripts must be sourced in the shell where the model runs. Creating case directories alone does not supply forcing, parameters or namelists.

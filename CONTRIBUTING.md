@@ -7,6 +7,8 @@ Thanks for helping improve easy-wrf-hydro-build.
 From the project root:
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
@@ -24,6 +26,8 @@ Run these before opening a pull request:
 ```bash
 python -m compileall src tests -q
 python -m pytest
+python scripts/dev/check_docs.py
+python -m build
 ```
 
 For real WRF-Hydro environments, also run:
@@ -31,8 +35,8 @@ For real WRF-Hydro environments, also run:
 ```bash
 ewhb doctor \
   --compiler-family intel \
-  --wrf-hydro-root ~/wrfhydro_build/sources/wrf_hydro_nwm_public-5.1.2/trunk/NDHMS \
-  --netcdf ~/wrfhydro_build/intel_libs \
+  --wrf-hydro-root ~/wrfhydro-intel/sources/wrf_hydro_nwm_public-5.1.2/trunk/NDHMS \
+  --netcdf ~/wrfhydro-intel/intel_libs \
   --intel-home /path/to/intel
 ```
 
@@ -42,6 +46,9 @@ The script accepts only a dedicated `~/ewhb_isolated_full_*` or
 `--keep` is supplied.
 
 ## Project Scope
+
+See the [repository layout](docs/repository-layout.md) for module ownership and
+the [artwork guide](docs/assets/README.md) for editing documentation figures.
 
 This project aims to automate repeatable WRF-Hydro build preparation and checks.
 It should stay conservative:

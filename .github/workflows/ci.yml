@@ -39,3 +39,18 @@ jobs:
         run: |
           bash -n scripts/linux/prepare_blank_ubuntu.sh
           bash -n scripts/linux/run_isolated_full_loop.sh
+          bash -n examples/intel-classic.sh
+          bash -n examples/gnu.sh
+
+      - name: Check documentation links and SVGs
+        run: python scripts/dev/check_docs.py
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Smoke-test wheel outside the source tree
+        run: |
+          python -m venv "$RUNNER_TEMP/ewhb-wheel"
+          "$RUNNER_TEMP/ewhb-wheel/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/ewhb-wheel/bin/ewhb" --help

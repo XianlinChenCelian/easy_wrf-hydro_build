@@ -1,149 +1,109 @@
-# easy_wrf-hydro_build [![easy_wrf-hydro_build Logo](docs/logo_small_size.png)](https://github.com/XianlinChenCelian/easy_wrf-hydro_build)
+<p align="center"><img src="docs/assets/brand/logo.png" width="104" alt="easy_wrf-hydro_build：云、降水、流域与河流"></p>
 
-这是一个用于部署 WRF-Hydro 离线模型的开源构建辅助工具。
+# easy_wrf-hydro_build
 
-[English](README_EN.md) | [安装流程](docs/bootstrap.md) | [常见问题](docs/troubleshooting.md) | [验证记录](docs/verified-builds.md)
+为已有 Linux 环境准备 WRF-Hydro 离线模型的编译与运行环境。
 
-![EWHB_Architecture](docs/ewhb_architecture.svg)
+[![CI](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/actions/workflows/ci.yml/badge.svg)](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-167C6B)](LICENSE)
 
-`easy_wrf-hydro_build` 面向已经有 Linux、WSL2 或 Linux 虚拟机的用户，主要处理 WRF-Hydro 编译过程中容易出问题的依赖、编译器、MPI 和 NetCDF 环境。
+[English](README_EN.md) · [快速开始](docs/quickstart.md) · [文档目录](docs/index.md) · [验证记录](docs/verified-builds.md)
 
-当前版本只负责 **WRF-Hydro 离线模型**，不编译 WRF 和 WPS。
+WRF-Hydro 安装中比较费时间的，往往是编译器、MPI 和 NetCDF 之间的匹配。
+这个项目把依赖编译、模型构建、环境脚本和示例运行整理为一套可以检查、重复执行的流程。
+面向 Linux、WSL2 Ubuntu 和 Linux 虚拟机，当前基线为 **WRF-Hydro 5.1.2 离线模式**。
 
-## Installation
+![构建流程：准备本地源码，选择 Intel 或 GNU，编译独立依赖与 WRF-Hydro，可选运行 Croton 示例。](docs/assets/figures/build-workflow.png)
 
-从 GitHub 克隆或下载仓库后：
+*流域插画为概念示意；编译流程与验证状态见下文。[查看高清图](docs/assets/figures/build-workflow.svg)*
 
-```bash
-cd easy_wrf-hydro_build
-python3 -m pip install -e .
-ewhb --help
-```
+## 当前支持
 
-Ubuntu / WSL2 下建议先准备基础编译工具：
+| 路线 | 编译器与 MPI | 验证状态 |
+| --- | --- | --- |
+| Intel classic | `ifort` / `icc` / `mpiifort` | Parallel Studio XE 2018 完成依赖编译、模型编译和 Croton NWM 单进程运行 |
+| GNU | `gcc` / `gfortran` / OpenMPI `mpif90` | 脚本与配置分支已检查，干净环境完整运行待验证 |
+| Intel oneAPI | 视安装版本而定 | 环境加载已适配；独立构建待验证，`ifx` 路线仍属实验性 |
+
+CI 检查 Python 包、脚本和文档，**不代表所有编译器都完成了模型实测**。
+具体组合见 [验证记录](docs/verified-builds.md) 和 [Intel 版本说明](docs/intel-compiler-matrix.md)。
+
+## 安装
+
+在 Linux 终端中安装 Python 3.9+、Git 和 `venv`。Ubuntu 用户可以先执行：
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential gfortran g++ gcc make m4 perl csh tcsh \
-  openmpi-bin libopenmpi-dev
+sudo apt-get install -y python3 python3-venv python3-pip git
 ```
 
-如果是在实验室的空白 Windows + WSL2 电脑上复现，可参考 [空白 Windows / WSL2 环境说明](docs/blank-windows.md)。
-
-## Usage
-
-### 1. 准备源码压缩包
-
-将下面这些文件放在同一个目录中，允许位于子目录：
-
-```text
-zlib-1.2.11.tar.gz
-hdf5-1.12.0.tar.gz
-netcdf-c-4.7.4.tar.gz
-netcdf-fortran-4.5.3.tar.gz
-wrf_hydro_nwm_public-5.1.2.tar.gz
-```
-
-如果需要自动运行 Croton, NY 示例，再加入：
-
-```text
-croton_NY_example_testcase.tar.gz
-```
-
-这些源码和测试数据不会随仓库分发，请从对应项目的官方渠道获取，并自行确认许可证和文件完整性。
-
-### 2A. Intel 编译路线
-
-适用于已经安装 Intel Fortran 和 Intel MPI 的环境。目前完整验证过的组合为：
-
-```text
-ifort + mpiifort
-```
-
-示例：
+然后安装本工具：
 
 ```bash
-ewhb bootstrap \
-  --compiler-family intel \
-  --shared-dir /mnt/d/wrf-hydro-packages \
-  --prefix ~/wrfhydro_build \
+git clone https://github.com/XianlinChenCelian/easy_wrf-hydro_build.git
+cd easy_wrf-hydro_build
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install .
+ewhb --help
+```
+
+系统编译工具和 MPI 按路线准备，见 [快速开始](docs/quickstart.md)。Intel 路线需要用户已有 Intel 编译器与 Intel MPI。
+
+## 使用
+
+先将 WRF-Hydro、zlib、HDF5、NetCDF-C 和 NetCDF-Fortran 源码包放在同一目录。
+[源码清单](docs/source-archives.md) 列出了基线版本、官方获取入口和可选的 Croton 示例数据。
+
+**Intel**，将 `--intel-home` 改为实际的编译器安装目录：
+
+```bash
+ewhb bootstrap --compiler-family intel \
+  --shared-dir ~/wrf-hydro-packages \
+  --prefix ~/wrfhydro-intel \
   --intel-home ~/intel/parallel_studio_xe_2018 \
-  --run-example
+  --jobs 4
+source ~/wrfhydro-intel/wrf_hydro_intel_env.sh
 ```
 
-构建完成后：
+**GNU**，使用系统安装的 GCC、GFortran 和 OpenMPI：
 
 ```bash
-source ~/wrfhydro_build/wrf_hydro_intel_env.sh
+ewhb bootstrap --compiler-family gnu \
+  --shared-dir ~/wrf-hydro-packages \
+  --prefix ~/wrfhydro-gnu \
+  --jobs 4
+source ~/wrfhydro-gnu/wrf_hydro_gnu_env.sh
 ```
 
-### 2B. GNU 编译路线
+加入 `--dry-run` 可先生成脚本而不执行编译；准备好匹配版本的示例数据后，加入 `--run-example` 可运行 Croton NWM 示例。
+不同路线或版本应使用**不同的 `--prefix`**，避免重用旧源码、日志和完成标记。
 
-示例：
+## 文档
 
-```bash
-ewhb bootstrap \
-  --compiler-family gnu \
-  --shared-dir /mnt/d/wrf-hydro-packages \
-  --prefix ~/wrfhydro_build \
-  --run-example
-```
+| 你要做什么 | 入口 |
+| --- | --- |
+| 第一次从零编译 | [快速开始](docs/quickstart.md) |
+| 准备依赖源码和示例数据 | [源码清单](docs/source-archives.md) |
+| 查看完整构建流程和产物 | [构建说明](docs/bootstrap.md) |
+| 使用现有 NetCDF / 调整编译选项 | [命令参考](docs/cli.md) |
+| 直接运行一份命令示例 | [examples](examples/README.md) |
+| 排查错误或验证新电脑 | [故障排查](docs/troubleshooting.md) · [隔离测试](docs/isolated-testing.md) |
+| 了解代码放在哪里 | [仓库结构](docs/repository-layout.md) |
 
-构建完成后：
+## 项目范围
 
-```bash
-source ~/wrfhydro_build/wrf_hydro_gnu_env.sh
-```
+本项目构建 WRF-Hydro 离线 NoahMP / Noah 可执行文件，生成运行环境脚本，可选运行官方示例。
+WRF/WPS 编译、自定义流域预处理、率定及科学结果分析不在当前范围内。
+第三方源码、数据、Intel 安装程序与许可证由用户自行准备，仓库不随包分发。
 
-## Features
+## 参与和引用
 
-- 从本地压缩包编译 zlib、HDF5、NetCDF-C 和 NetCDF-Fortran；
-- Intel 和 GNU 编译环境使用独立依赖目录，减少库文件混用；
-- 编译 WRF-Hydro NoahMP 或 Noah 离线可执行文件；
-- 自动处理 Intel MPI 下 `mpif90` 与 `mpiifort` 的常见配置问题；
-- 生成可重复 `source` 的运行环境脚本；
-- 可选运行 Croton, NY 官方示例，检查从依赖编译到模型运行的完整流程。
+欢迎通过 [Issues](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/issues) 提交错误或真实编译记录。
+代码贡献见 [CONTRIBUTING.md](CONTRIBUTING.md)，后续计划见 [Roadmap](docs/roadmap.md)，版本变更见 [CHANGELOG.md](CHANGELOG.md)。
 
-## Documentation
+项目使用 [MIT License](LICENSE)。科研引用信息见 [CITATION.cff](CITATION.cff)；WRF-Hydro 和各依赖请分别遵循其许可证与引用要求。
+页面组织参考了 [easy_vic_build](https://github.com/XudongZhengSteven/easy_vic_build) 和 [HydroMT](https://github.com/Deltares/hydromt)，本项目由作者独立维护。
 
-- [完整安装与编译流程](docs/bootstrap.md)
-- [Intel 编译器版本与分流](docs/intel-compiler-matrix.md)
-- [常见错误与排查](docs/troubleshooting.md)
-- [隔离闭环测试](docs/isolated-testing.md)
-- [空白 Windows / WSL2 环境说明](docs/blank-windows.md)
-- [项目路线图](docs/roadmap.md)
-
-## Notes
-
-1. **Intel 编译器**
-
-   Intel 路线会查找 classic Parallel Studio 或 oneAPI 的环境脚本。当前最成熟的组合仍然是 `ifort + mpiifort`。只有 `ifx`、没有 `ifort` 的环境仍属于实验性支持。
-
-2. **GNU 编译器**
-
-   GNU 路线已经通过脚本生成、配置项和官方 `gfort` / `mpif90` 宏匹配检查，独立全编译还需要更多干净环境测试。
-
-3. **仓库边界**
-
-   本仓库只包含自动化脚本、文档、测试和 GitHub 页面素材，不分发 Intel 安装程序、许可证、WRF-Hydro 源码、第三方依赖源码或示例数据。
-
-## Contributing
-
-欢迎提交不同 Ubuntu、Intel oneAPI、GNU/OpenMPI 和 WRF-Hydro 版本的真实验证结果。
-
-提交代码前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请参阅 [SECURITY.md](SECURITY.md)。
-
-## License
-
-本项目代码按 [MIT License](LICENSE) 发布。WRF-Hydro 及各第三方依赖仍遵循各自许可证。
-
-## Contact
-
-- **Author**: XianlinChen
-- **Email**: chenxl@sehemodel.club
-- **GitHub**: [@XianlinChenCelian](https://github.com/XianlinChenCelian)
-- **Issues**: [GitHub Issues](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/issues)
-
-## Citation
-
-如果在科研或教学工作中使用本项目，可通过仓库中的 [CITATION.cff](CITATION.cff) 获取推荐引用格式。
+**Author**: XianlinChen · **Email**: [chenxl@sehemodel.club](mailto:chenxl@sehemodel.club)

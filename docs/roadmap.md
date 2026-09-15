@@ -12,6 +12,7 @@
 - Generate a repeatable compile script for WRF-Hydro offline NoahMP/Noah builds.
 - Preserve the Intel MPI `mpiifort` fix.
 - Optionally stage and run the Croton NY offline example.
+- Check the Python package, shell syntax, local documentation links and wheel installation in CI.
 
 ## 0.2
 
@@ -40,4 +41,3 @@
 ## Later
 
 - Add optional container recipes for users who prefer Docker or Apptainer.
-- Add GitHub Actions checks for Python code, documentation, and generated-script syntax.

@@ -6,6 +6,8 @@ Describe the WRF-Hydro build, diagnostic, documentation, or test change.
 
 - [ ] `python -m compileall src tests -q`
 - [ ] `python -m pytest`
+- [ ] `python scripts/dev/check_docs.py`
+- [ ] `python -m build`
 - [ ] Generated shell scripts pass `bash -n`
 - [ ] Real build/run verification was performed, or the limitation is documented
 

@@ -10,8 +10,8 @@ Do not mix compiler families inside one dependency prefix.
 Good layouts:
 
 ```text
-~/wrfhydro_build/intel_libs
-~/wrfhydro_build/gnu_libs
+~/wrfhydro-intel/intel_libs
+~/wrfhydro-gnu/gnu_libs
 ```
 
 Risky layout:
@@ -23,6 +23,10 @@ Risky layout:
 If NetCDF-Fortran was built with `ifort`, compile WRF-Hydro with Intel Fortran
 and Intel MPI. If NetCDF-Fortran was built with `gfortran`, compile WRF-Hydro
 with a GNU-compatible MPI wrapper.
+
+Use different bootstrap prefixes for these routes. Source directories and
+completion markers also live under the prefix and must not be reused across
+compiler/version changes.
 
 ## Intel MPI Uses the Wrong Fortran Backend
 
@@ -97,13 +101,13 @@ WRF-Hydro runs need the matching environment loaded in each shell.
 Intel:
 
 ```bash
-source ~/wrfhydro_build/wrf_hydro_intel_env.sh
+source ~/wrfhydro-intel/wrf_hydro_intel_env.sh
 ```
 
 GNU:
 
 ```bash
-source ~/wrfhydro_build/wrf_hydro_gnu_env.sh
+source ~/wrfhydro-gnu/wrf_hydro_gnu_env.sh
 ```
 
 You can add the matching `source` line to `~/.bashrc` on a dedicated model
@@ -120,17 +124,20 @@ Prefer building large source trees inside the Linux filesystem, for example:
 Shared archives can stay under `/mnt/d/...`, but repeated compilation is usually
 more predictable from the Linux filesystem.
 
-## NetCDF ABI Checks
+## NetCDF Environment Checks
 
 Use `doctor` before compiling.
+
+It checks paths and tool availability; it does not compile a probe program or
+prove that the libraries have a compatible Fortran ABI.
 
 Intel:
 
 ```bash
 ewhb doctor \
   --compiler-family intel \
-  --wrf-hydro-root ~/wrfhydro_build/sources/wrf_hydro_nwm_public-5.1.2/trunk/NDHMS \
-  --netcdf ~/wrfhydro_build/intel_libs \
+  --wrf-hydro-root ~/wrfhydro-intel/sources/wrf_hydro_nwm_public-5.1.2/trunk/NDHMS \
+  --netcdf ~/wrfhydro-intel/intel_libs \
   --intel-home ~/intel/parallel_studio_xe_2018
 ```
 
@@ -139,8 +146,8 @@ GNU:
 ```bash
 ewhb doctor \
   --compiler-family gnu \
-  --wrf-hydro-root ~/wrfhydro_build/sources/wrf_hydro_nwm_public-5.1.2/trunk/NDHMS \
-  --netcdf ~/wrfhydro_build/gnu_libs
+  --wrf-hydro-root ~/wrfhydro-gnu/sources/wrf_hydro_nwm_public-5.1.2/trunk/NDHMS \
+  --netcdf ~/wrfhydro-gnu/gnu_libs
 ```
 
 At minimum, it should find:

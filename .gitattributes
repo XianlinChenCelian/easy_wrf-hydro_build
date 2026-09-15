@@ -7,3 +7,7 @@
 *.ps1 text eol=crlf
 *.svg text eol=lf
 *.png binary
+*.jpg binary
+*.mjs text eol=lf
+*.toml text eol=lf
+.gitattributes text eol=lf

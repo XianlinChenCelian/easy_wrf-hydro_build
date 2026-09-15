@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="970" viewBox="0 0 1440 970" role="img" aria-labelledby="title desc">
+  <title id="title">easy_wrf-hydro_build workflow</title>
+  <desc id="desc">Local source archives pass through an Intel or GNU toolchain to a matching zlib, HDF5 and NetCDF library stack, then to an offline WRF-Hydro executable and optional Croton test. Intel 2018 is end-to-end verified; GNU and oneAPI validation remains limited.</desc>
+  <defs>
+    <style>
+      text { font-family:Arial,Helvetica,sans-serif; fill:#243c38; letter-spacing:0; }
+      .title { font-size:42px; font-weight:700; }
+      .heading { font-size:27px; font-weight:700; }
+      .body { font-size:22px; }
+      .small { font-size:19px; fill:#566863; }
+      .mono { font-family:Consolas,'Liberation Mono',monospace; font-size:21px; }
+      .number { font-size:24px; fill:#638079; }
+      .flow { fill:none; stroke:#61877f; stroke-width:2.5; stroke-linejoin:round; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="m1 1 7 4-7 4" fill="none" stroke="#61877f" stroke-width="1.5"/>
+    </marker>
+  </defs>
+  <rect width="1440" height="970" fill="#fff"/>
+  <image x="52" y="38" width="72" height="72" href="{{LOGO_URI}}"/>
+  <text x="148" y="76" class="title">easy_wrf-hydro_build</text>
+  <text x="149" y="115" class="body" fill="#566863">A local build workflow for the WRF-Hydro offline model</text>
+  <path d="M56 154H1384" stroke="#cddbd7" stroke-width="1.5"/>
+
+  <text x="56" y="199" class="number">01</text>
+  <text x="56" y="238" class="heading">Local sources</text>
+  <text x="340" y="199" class="number">02</text>
+  <text x="340" y="238" class="heading">Choose a toolchain</text>
+  <text x="666" y="199" class="number">03</text>
+  <text x="666" y="238" class="heading">Build libraries</text>
+  <text x="980" y="199" class="number">04</text>
+  <text x="980" y="238" class="heading">Build the model</text>
+
+  <g transform="translate(75 282)">
+    <path d="m0 23 80-23 96 26v98l-80 28-96-29Z" fill="#eef4f1" stroke="#7b958d" stroke-width="2"/>
+    <path d="m0 23 96 25 80-22M96 48v104M40 11l92 26v26l-24 8V43" fill="none" stroke="#7b958d" stroke-width="2"/>
+    <path d="m29 69 18 5m-18 10 29 8" stroke="#177f92" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <text x="56" y="484" class="body" font-weight="700">WRF-Hydro 5.1.2</text>
+  <text x="56" y="518" class="body">Dependency archives</text>
+  <text x="56" y="553" class="mono" fill="#566863">*.tar.gz</text>
+  <path d="M56 588H279" stroke="#d7e2de"/>
+  <text x="56" y="620" class="small">Linux / WSL2 / VM</text>
+  <text x="56" y="650" class="small">Python 3.9+ and Bash</text>
+
+  <path class="flow" d="M275 411h37V341h25M312 411v144h25" marker-end="url(#arrow)"/>
+  <path class="flow" d="M312 341h25" marker-end="url(#arrow)"/>
+  <rect x="342" y="280" width="270" height="137" rx="5" fill="#eef6fa" stroke="#c6dbe5"/>
+  <path d="M343 293v111" stroke="#287eab" stroke-width="4"/>
+  <text x="361" y="319" class="body" font-weight="700" fill="#20688c">Intel classic</text>
+  <text x="361" y="354" class="mono">ifort + mpiifort</text>
+  <text x="361" y="390" class="small">Intel C/C++ and Intel MPI</text>
+
+  <text x="477" y="459" class="small" text-anchor="middle">OR</text>
+
+  <rect x="342" y="490" width="270" height="137" rx="5" fill="#f0f6ed" stroke="#d1dfc8"/>
+  <path d="M343 503v111" stroke="#648246" stroke-width="4"/>
+  <text x="361" y="529" class="body" font-weight="700" fill="#536f37">GNU</text>
+  <text x="361" y="564" class="mono">gfortran + mpif90</text>
+  <text x="361" y="600" class="small">GCC and OpenMPI</text>
+  <path class="flow" d="M614 348h18v103h29" marker-end="url(#arrow)"/>
+  <path class="flow" d="M614 558h18V451"/>
+
+  <g>
+    <rect x="666" y="283" width="242" height="58" rx="4" fill="#f3f6f5" stroke="#cedbd5"/>
+    <text x="685" y="320" class="body">zlib 1.2.11</text>
+    <path class="flow" d="M787 344v23" marker-end="url(#arrow)"/>
+    <rect x="666" y="374" width="242" height="58" rx="4" fill="#edf4f1" stroke="#c9dbd3"/>
+    <text x="685" y="411" class="body">HDF5 1.12.0</text>
+    <path class="flow" d="M787 435v23" marker-end="url(#arrow)"/>
+    <rect x="666" y="465" width="242" height="58" rx="4" fill="#e6f2ed" stroke="#bdd6ca"/>
+    <text x="685" y="502" class="body">NetCDF-C 4.7.4</text>
+    <path class="flow" d="M787 526v23" marker-end="url(#arrow)"/>
+    <rect x="666" y="556" width="242" height="58" rx="4" fill="#dceee5" stroke="#accbbd"/>
+    <text x="681" y="593" class="body">NetCDF-Fortran 4.5.3</text>
+  </g>
+  <text x="666" y="650" class="small">Matching compiler family</text>
+  <path class="flow" d="M911 451h60" marker-end="url(#arrow)"/>
+
+  <image x="971" y="270" width="432" height="288" href="{{WATERSHED_URI}}"/>
+  <text x="980" y="591" class="heading">NoahMP / Noah</text>
+  <text x="980" y="625" class="small">Executable + environment script</text>
+  <path d="M980 650H1376" stroke="#d2dfda"/>
+  <circle cx="988" cy="687" r="7" fill="#be763b"/>
+  <text x="1008" y="694" class="body">Croton NY run</text>
+  <text x="1194" y="694" class="small">(optional)</text>
+
+  <path d="M56 711H908" stroke="#d7e2de"/>
+  <text x="56" y="696" class="small">Dedicated prefix per toolchain / version; step logs and reusable shell scripts.</text>
+
+  <rect x="0" y="755" width="1440" height="168" fill="#f2f6f4"/>
+  <text x="56" y="791" class="small" font-weight="700">VALIDATION SNAPSHOT</text>
+  <text x="56" y="833" class="body" font-weight="700">Intel 2018</text>
+  <circle cx="210" cy="825" r="6" fill="#197c62"/>
+  <text x="56" y="866" class="small">Build + Croton NWM / 1 MPI process</text>
+  <path d="M513 817v67M959 817v67" stroke="#cbd9d3"/>
+  <text x="544" y="833" class="body" font-weight="700">GNU</text>
+  <text x="544" y="866" class="small">Script and configure checks</text>
+  <text x="992" y="833" class="body" font-weight="700">oneAPI / ifx</text>
+  <text x="992" y="866" class="small">Further build validation needed</text>
+  <text x="56" y="951" class="small">WRF-Hydro offline only. Watershed illustration is conceptual, not a Croton map or model result.</text>
+</svg>

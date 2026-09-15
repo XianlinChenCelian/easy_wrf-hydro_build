@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Documentation and Packaging
+
+- Redesign the workflow figure, logo and social preview; group assets and editable layouts.
+- Add quickstart, archive inventory, CLI reference and repository layout guides.
+- Replace the non-executable YAML example with Intel classic and GNU CLI scripts.
+- Use virtual environments in installation instructions and distinct build prefixes.
+- Make compiler validation limits visible in both README languages.
+- Add documentation-link checks, distribution builds and wheel smoke tests to CI.
+- Use SPDX license metadata and a matching setuptools minimum.
+
+No new full WRF-Hydro compiler validation is claimed by this documentation update.
+
 ## [0.1.0] - 2026-08-27
 
 ### Added

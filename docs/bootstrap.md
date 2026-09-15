@@ -1,5 +1,7 @@
 # Bootstrap Workflow
 
+[Documentation](index.md) · [中文快速开始](quickstart.md) · [CLI reference](cli.md)
+
 `ewhb bootstrap` builds a local WRF-Hydro environment from source archives on an
 existing Linux system. It supports two compiler families:
 
@@ -8,7 +10,23 @@ existing Linux system. It supports two compiler families:
 
 The workflow does not build WRF or WPS.
 
+## Prerequisites
+
+Install the Python helper in a virtual environment as shown in the
+[README](../README_EN.md). On Ubuntu, both routes need:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential m4 perl csh tcsh
+```
+
+For Intel, supply an existing compiler and Intel MPI installation. GNU packages
+are listed below. Use Python 3.9+ and run commands in Linux, including under WSL2.
+
 ## Required Local Archives
+
+See [source archives](source-archives.md) for official download locations and
+the matching Croton version. Keep one version of each component in the shared directory.
 
 Put these files under one shared directory. Subdirectories are fine.
 
@@ -32,7 +50,7 @@ croton_NY_example_testcase.tar.gz
 ewhb bootstrap \
   --compiler-family intel \
   --shared-dir /mnt/d/wrf-hydro-packages \
-  --prefix ~/wrfhydro_build \
+  --prefix ~/wrfhydro-intel \
   --intel-home ~/intel/parallel_studio_xe_2018 \
   --run-example
 ```
@@ -40,19 +58,19 @@ ewhb bootstrap \
 This writes and runs:
 
 ```text
-~/wrfhydro_build/bootstrap_easy_wrf_hydro.sh
+~/wrfhydro-intel/bootstrap_easy_wrf_hydro.sh
 ```
 
 It builds dependencies under:
 
 ```text
-~/wrfhydro_build/intel_libs
+~/wrfhydro-intel/intel_libs
 ```
 
 It writes the runtime environment script:
 
 ```text
-~/wrfhydro_build/wrf_hydro_intel_env.sh
+~/wrfhydro-intel/wrf_hydro_intel_env.sh
 ```
 
 ## GNU Build
@@ -71,20 +89,20 @@ Then run:
 ewhb bootstrap \
   --compiler-family gnu \
   --shared-dir /mnt/d/wrf-hydro-packages \
-  --prefix ~/wrfhydro_build \
+  --prefix ~/wrfhydro-gnu \
   --run-example
 ```
 
 It builds dependencies under:
 
 ```text
-~/wrfhydro_build/gnu_libs
+~/wrfhydro-gnu/gnu_libs
 ```
 
 It writes the runtime environment script:
 
 ```text
-~/wrfhydro_build/wrf_hydro_gnu_env.sh
+~/wrfhydro-gnu/wrf_hydro_gnu_env.sh
 ```
 
 ## Dry Run
@@ -95,7 +113,7 @@ Use `--dry-run` to generate the script without executing it:
 ewhb bootstrap \
   --compiler-family intel \
   --shared-dir /mnt/d/wrf-hydro-packages \
-  --prefix ~/wrfhydro_build \
+  --prefix ~/wrfhydro-intel \
   --intel-home ~/intel/parallel_studio_xe_2018 \
   --dry-run
 ```
@@ -114,10 +132,15 @@ ewhb bootstrap \
 
 ## Rebuild Behavior
 
+Use a new prefix for a different compiler family or version. Sources and step
+markers are shared within one prefix, even though library folders have family names.
+
 Each major step writes a marker file under:
 
 ```text
 <prefix>/logs
 ```
 
-Remove a step's `.done` marker if you want to rebuild that step.
+For an unchanged toolchain and source version, removing a step's `.done` marker
+allows that step to rerun. Dependency changes can invalidate later steps too;
+a fresh prefix is the reliable choice when changing the build configuration.

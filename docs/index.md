@@ -1,13 +1,30 @@
 # Documentation
 
-这里记录 `easy_wrf-hydro_build` 的安装、编译、验证和维护资料。项目默认用户已经
-拥有 Linux、WSL2 Ubuntu 或 Linux 虚拟机，并且只处理 WRF-Hydro。
+[项目首页](../README.md) · [English overview](../README_EN.md)
 
-- [Bootstrap workflow](bootstrap.md)
-- [Intel compiler matrix](intel-compiler-matrix.md)
-- [Troubleshooting](troubleshooting.md)
-- [Verified builds](verified-builds.md)
-- [Isolated testing](isolated-testing.md)
-- [Blank Windows setup appendix](blank-windows.md)
-- [Roadmap](roadmap.md)
-- [GitHub publishing guide](github-publishing.md)
+## 开始使用 / Get Started
+
+第一次使用建议按以下顺序阅读：
+
+1. [快速开始](quickstart.md)：Python 环境、系统工具、编译和运行检查。
+2. [源码清单 / Source archives](source-archives.md)：版本、官方来源和示例数据。
+3. [完整构建流程 / Bootstrap](bootstrap.md)：英文构建说明、产物和重建行为。
+4. [可运行示例 / Examples](../examples/README.md)：Intel 和 GNU 命令脚本。
+
+## 兼容性和排查 / Compatibility
+
+- [验证记录](verified-builds.md)：已实际运行和仅完成静态检查的组合。
+- [Intel 编译器矩阵](intel-compiler-matrix.md)：classic、oneAPI 和 ifx 的边界。
+- [故障排查](troubleshooting.md)：MPI、NetCDF 和环境路径问题。
+- [命令参考](cli.md)：`bootstrap`、`compile`、`doctor`、`write-env`、`init-case`。
+
+## 参与维护 / Development
+
+- [仓库结构](repository-layout.md)：代码、文档、示例和图片的职责。
+- [贡献指南](../CONTRIBUTING.md) 与 [隔离完整测试](isolated-testing.md)。
+- [路线图](roadmap.md)、[变更记录](../CHANGELOG.md) 和 [发布说明](github-publishing.md)。
+- [图片源文件与设计说明](assets/README.md)。
+
+## 附录 / Appendix
+
+- [空白 Windows 配置](blank-windows.md)：辅助资料；主流程从已有 Linux 环境开始。
