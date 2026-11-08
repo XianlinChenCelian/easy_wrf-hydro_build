@@ -12,7 +12,7 @@ Build and prepare a WRF-Hydro offline environment on an existing Linux system.
 
 Matching compilers, MPI wrappers and NetCDF libraries is often the time-consuming part of a WRF-Hydro installation.
 This tool brings dependency builds, model compilation, environment scripts and an optional example run into an inspectable, repeatable workflow.
-It targets Linux, WSL2 Ubuntu and Linux VMs, with **WRF-Hydro 5.1.2 offline mode** as the current baseline.
+It targets Linux, WSL2 Ubuntu and Linux VMs, with offline releases for WRF-Hydro **5.1.2, 5.2.0 and 5.4.0**.
 
 ![Build workflow: local archives, Intel or GNU toolchain, isolated dependencies, WRF-Hydro compilation and an optional Croton example.](docs/assets/figures/build-workflow.png)
 
@@ -23,11 +23,15 @@ It targets Linux, WSL2 Ubuntu and Linux VMs, with **WRF-Hydro 5.1.2 offline mode
 | Route | Compiler and MPI | Evidence |
 | --- | --- | --- |
 | Intel classic | `ifort` / `icc` / `mpiifort` | Parallel Studio XE 2018: dependencies, model build and single-process Croton NWM run completed |
-| GNU | `gcc` / `gfortran` / OpenMPI `mpif90` | Script and configuration checks passed; clean end-to-end run pending |
-| Intel oneAPI | Depends on installed components | Environment loading implemented; independent builds pending, `ifx` experimental |
+| GNU | `gcc` / `gfortran` / OpenMPI `mpif90` | All three releases built and ran Croton on native Linux x86_64 compute nodes |
+| Intel oneAPI | Depends on installed components | 5.4.0 built and ran Croton with site oneAPI 2021.3 `ifort`; `ifx` is a preview |
 
 CI checks the Python package, scripts and documentation. **It is not a full WRF-Hydro compiler matrix.**
 See [verified builds](docs/verified-builds.md) and the [Intel compiler matrix](docs/intel-compiler-matrix.md).
+
+## Select a system, compiler and model version
+
+Use the [release matrix](docs/release-bundles.md) to select a version. On a cluster, load the site compiler and MPI modules and pass `--site-toolchain` to the Intel recipe. On personal x86_64 Linux or WSL2, follow the [oneAPI installation guide](docs/oneapi-install.md) for a user-local toolchain. The [Intel matrix](docs/intel-compiler-matrix.md) records platform limits and validation.
 
 ## Installation
 

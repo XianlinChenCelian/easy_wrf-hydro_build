@@ -4,6 +4,8 @@
 
 ## 开始使用 / Get Started
 
+先选择 [系统架构、编译器和模型版本](release-bundles.md)。个人 Intel 工具链的安装步骤见 [oneAPI 安装指南](oneapi-install.md)。
+
 第一次使用建议按以下顺序阅读：
 
 1. [快速开始](quickstart.md)：Python 环境、系统工具、编译和运行检查。

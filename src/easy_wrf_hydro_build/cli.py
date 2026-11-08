@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from subprocess import CalledProcessError
 
+from .archives import WRF_HYDRO_RELEASES
 from .bootstrap import BootstrapConfig, bootstrap
 from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
@@ -16,7 +18,9 @@ from .workflow import compile_wrf_hydro, write_runtime_env
 def _compiler_defaults(args: argparse.Namespace) -> tuple[str, str]:
     if args.compiler_family == "gnu":
         return args.compiler_option or "gfort", args.mpi_wrapper or "mpif90"
-    return args.compiler_option or "ifort", args.mpi_wrapper or "mpiifort"
+    compiler = args.compiler_option or "ifort"
+    wrapper = "mpiifx" if compiler == "ifx" else "mpiifort"
+    return compiler, args.mpi_wrapper or wrapper
 
 
 def _build_config(args: argparse.Namespace) -> BuildConfig:
@@ -78,8 +82,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     bootstrap_cmd.add_argument("--shared-dir", required=True)
     bootstrap_cmd.add_argument("--prefix", required=True)
-    bootstrap_cmd.add_argument("--intel-home")
-    bootstrap_cmd.add_argument("--compiler-family", default="intel", choices=["intel", "gnu"])
+    intel_setup = bootstrap_cmd.add_mutually_exclusive_group()
+    intel_setup.add_argument("--intel-home")
+    intel_setup.add_argument("--site-toolchain", action="store_true", help="Use the administrator-provided Intel compiler and MPI already loaded in this shell.")
+    bootstrap_cmd.add_argument(
+        "--wrf-hydro-version",
+        choices=WRF_HYDRO_RELEASES,
+        help="Select a WRF-Hydro release and its matching Croton archive.",
+    )
+    bootstrap_cmd.add_argument("--netcdf", help="Use existing NetCDF-C and NetCDF-Fortran libraries.")
+    bootstrap_cmd.add_argument("--build-netcdf", action="store_true", help="Build NetCDF and its dependencies from source archives.")
+    bootstrap_cmd.add_argument("--compiler-family", choices=["intel", "gnu"])
     bootstrap_cmd.add_argument("--profile")
     bootstrap_cmd.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2)))
     bootstrap_cmd.add_argument("--compiler-option")
@@ -127,28 +140,43 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "bootstrap":
+        if args.compiler_family is None:
+            args.compiler_family = "intel" if args.site_toolchain or not args.wrf_hydro_version else "gnu"
         compiler_option, mpi_wrapper = _compiler_defaults(args)
         intel_home = Path(args.intel_home).expanduser().resolve() if args.intel_home else None
-        if args.compiler_family == "intel" and intel_home is None:
+        if args.compiler_family == "intel" and intel_home is None and not args.site_toolchain:
             intel_home = Path("~/intel/parallel_studio_xe_2018").expanduser().resolve()
-        result = bootstrap(
-            BootstrapConfig(
-                shared_dir=Path(args.shared_dir).expanduser().resolve(),
-                prefix=Path(args.prefix).expanduser().resolve(),
-                compiler_family=args.compiler_family,
-                intel_home=intel_home,
-                profile=args.profile,
-                jobs=args.jobs,
-                compiler_option=compiler_option,
-                land_model=args.land_model,
-                mpi_wrapper=mpi_wrapper,
-                skip_deps=args.skip_deps,
-                run_example=args.run_example,
-                example_config=args.example_config,
-                example_np=args.example_np,
-            ),
-            dry_run=args.dry_run,
-        )
+        try:
+            result = bootstrap(
+                BootstrapConfig(
+                    shared_dir=Path(args.shared_dir).expanduser().resolve(),
+                    prefix=Path(args.prefix).expanduser().resolve(),
+                    compiler_family=args.compiler_family,
+                    intel_home=intel_home,
+                    profile=args.profile,
+                    jobs=args.jobs,
+                    compiler_option=compiler_option,
+                    land_model=args.land_model,
+                    mpi_wrapper=mpi_wrapper,
+                    skip_deps=args.skip_deps,
+                    run_example=args.run_example,
+                    example_config=args.example_config,
+                    example_np=args.example_np,
+                    wrf_hydro_version=args.wrf_hydro_version,
+                    netcdf_prefix=Path(args.netcdf).expanduser().resolve() if args.netcdf else None,
+                    build_netcdf=args.build_netcdf,
+                    site_toolchain=args.site_toolchain,
+                ),
+                dry_run=args.dry_run,
+            )
+        except (ValueError, FileNotFoundError) as exc:
+            bootstrap_cmd.error(str(exc))
+        except CalledProcessError as exc:
+            if exc.stdout:
+                print(exc.stdout)
+            if exc.stderr:
+                print(exc.stderr)
+            return exc.returncode if exc.returncode > 0 else 1
         if isinstance(result, Path):
             print(result)
         else:

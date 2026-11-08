@@ -1,45 +1,34 @@
-# Intel Compiler Matrix
+# Intel 编译器矩阵
 
-Intel product names and release years are not sufficient to select a safe
-WRF-Hydro build path. The relevant combination is the Fortran compiler, C/C++
-compiler, MPI wrapper, environment script, and the compiler used for
-NetCDF-Fortran.
+| 运行环境 | 5.1.2 | 5.2.0 | 5.4.0 |
+| --- | --- | --- | --- |
+| Linux x86_64 / HPC | 站点 `ifort` 已实测，`ifx` 预览 | 站点 `ifort` 已实测，`ifx` 预览 | 站点 `ifort` 已实测，`ifx` 预览 |
+| Windows x86_64 的 WSL2 或 Linux 虚拟机 | 选择 x86_64 Linux 配方 | 选择 x86_64 Linux 配方 | 选择 x86_64 Linux 配方 |
+| Apple Silicon macOS / Linux ARM64 | GNU 或远程 x86_64 Intel | GNU 或远程 x86_64 Intel | GNU 或远程 x86_64 Intel |
+| Windows 原生 | Linux 来宾路线 | Linux 来宾路线 | Linux 来宾路线 |
 
-## Current profiles
+Intel 当前提供面向 x86_64 Linux 与 Windows 的 `ifx`，Intel 已于 oneAPI 2024.0 移除 Classic Fortran 的 macOS 支持。[Intel 平台要求](https://www.intel.com/content/www/us/en/developer/articles/release-notes/fortran-compiler/2026.html) · [macOS 支持变更](https://www.intel.com/content/www/us/en/developer/articles/release-notes/fortran-compiler/2024.html)
 
-| Profile | Environment entry | Fortran/MPI | Status |
-|---|---|---|---|
-| Classic Parallel Studio | `compilervars.sh` and `mpivars.sh` | `ifort` + `mpiifort` | Fully verified |
-| oneAPI with classic Fortran | `setvars.sh` | `ifort` + `mpiifort` | Environment loading supported; more version tests needed |
-| oneAPI LLVM Fortran | `setvars.sh` | `ifx` + Intel MPI wrapper | Experimental |
+## 超算直接调用
 
-The current stable Intel command still generates the WRF-Hydro `ifort`
-configuration and patches `COMPILER90` to `mpiifort`. This is why an ifx-only
-installation should not yet be presented as equivalent to the tested classic
-route.
+按站点文档加载管理员提供的 Intel Fortran 和 MPI 模块。在同一个计算作业中执行以下命令，第三个参数选择站点实际提供的编译器。
 
-## Recommended user interface
-
-For novice users, the long-term default should be automatic diagnosis:
-
-```text
-auto -> inspect environment -> recommend intel-ifort, intel-ifx, or gnu
+```bash
+bash install.sh /absolute/path/to/new-prefix --site-toolchain ifort
 ```
 
-Manual choices should remain available for clusters and non-standard modules.
-The detector must report the actual commands it found and stop when the MPI
-wrapper or NetCDF ABI does not match. Until that detector and the ifx compile
-patches are fully tested, the public stable choices remain `intel` and `gnu`.
+此入口沿用当前作业环境，从配方中的源码构建独立 NetCDF 和 WRF-Hydro。已有 ABI 匹配的 NetCDF 时，可在 `ewhb bootstrap` 中同时使用 `--site-toolchain --netcdf /path/to/netcdf`。运行生成的模型前，在作业中加载相同的站点工具链。
 
-## Before adding a new Intel profile
+## 个人工具链
 
-Record all of the following:
+从 `releases/linux-x86_64/intel/<版本>/` 选择源码配方。需要已安装的 Intel C/Fortran、匹配的 Intel MPI 和 Python 3.9+。5.4.0 还需要 CMake 3.12+。源码配方包含模型、Croton 和四个固定依赖源包，会在新的目录中重新编译 zlib、HDF5、NetCDF-C 和 NetCDF-Fortran。
 
-- Linux distribution and version.
-- Intel compiler package and `ifort --version` or `ifx --version` output.
-- Intel MPI wrapper path and backend compiler.
-- zlib, HDF5, NetCDF-C, NetCDF-Fortran, and WRF-Hydro versions.
-- WRF-Hydro configure option and generated `macros` changes.
-- `ldd` result and example-run result.
+```bash
+bash install.sh /absolute/path/to/new-prefix /path/to/oneapi ifort
+```
 
-Do not infer support only because `setvars.sh` loads successfully.
+三个版本均可选择 `ifx` 预览，此路径需要 `icx` 与 `mpiifx`。经典路径需要 `ifort`、`icc` 与 `mpiifort`。个人电脑从零安装工具链见 [oneAPI 安装指南](oneapi-install.md)，配方内也附有该指南和 `install-oneapi.sh`。通过 `EWHB_PYTHON` 可指定独立 Python，通过 `EWHB_JOBS` 可指定构建并行数。HPC 上应从调度系统的计算作业执行。安装日志为 `PREFIX/install.log`，模型日志位于 `PREFIX/model/logs/`。
+
+每个编译器与版本使用新的目标路径。GNU 与 Intel 的 Fortran 模块和 MPI 环境各自构建。测试状态按实际编译器版本、模型版本和平台记录在[已验证构建](verified-builds.md)。
+
+上游 WRF-Hydro 测试入口区分 `intel` 与 `gfort`。项目沿用这种显式选择，并参考 Spack 对外部编译器和工具链的独立记录方式。[WRF-Hydro 测试说明](https://github.com/NCAR/wrf_hydro_nwm_public/blob/main/tests/README.md) · [Spack 编译器配置](https://spack.readthedocs.io/en/latest/configuring_compilers.html)
