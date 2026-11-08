@@ -319,10 +319,12 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
             if gnu_cpp:
                 settings["CPP"] = f"{gnu_cpp} -P " + ("-nostdinc" if component == "WRF" else "-traditional")
             patch_config(config, settings)
-            if gnu_major >= 10 and profile["wrf"] == "4.2":
+            if gnu_major >= 10 and component == "WPS" and profile["wps"] in ("4.2", "4.3"):
                 with config.open("a") as stream:
-                    stream.write("\nFFLAGS += -fallow-argument-mismatch\n" if component == "WPS" else
-                                 "\nFCBASEOPTS_NO_G += -fallow-argument-mismatch -fallow-invalid-boz\n")
+                    stream.write("\nFFLAGS += -fallow-argument-mismatch\nF77FLAGS += -fallow-argument-mismatch\n")
+            if gnu_major >= 10 and component == "WRF" and profile["wrf"] == "4.2":
+                with config.open("a") as stream:
+                    stream.write("\nFCBASEOPTS_NO_G += -fallow-argument-mismatch -fallow-invalid-boz\n")
             command = ["./compile", "em_real", "-j", str(jobs)] if component == "WRF" else ["./compile"]
             run(component + "-compile", command, source)
             required = ("main/wrf.exe", "main/real.exe", "external/io_netcdf/libwrfio_nf.a") if component == "WRF" else (
