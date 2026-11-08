@@ -44,6 +44,8 @@ def main() -> int:
     files = sorted(ROOT.glob("*.md"))
     for folder in ("docs", "examples", ".github"):
         files.extend(sorted((ROOT / folder).rglob("*.md")))
+    # macOS can store file metadata in separate ._ files on external drives.
+    files = [path for path in files if not path.name.startswith("._")]
     errors = []
     checked = 0
     for path in files:
@@ -57,7 +59,9 @@ def main() -> int:
             checked += 1
             if not target.is_relative_to(ROOT) or not target.exists():
                 errors.append(f"{path.relative_to(ROOT)}: broken local link {href}")
-    figures = sorted((ROOT / "docs").rglob("*.svg"))
+    figures = sorted(
+        path for path in (ROOT / "docs").rglob("*.svg") if not path.name.startswith("._")
+    )
     for path in figures:
         try:
             ElementTree.parse(path)

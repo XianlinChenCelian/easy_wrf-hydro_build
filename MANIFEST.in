@@ -1,0 +1,2 @@
+recursive-include scripts/release *.py *.sh
+include docs/installation-recovery.md docs/oneapi-install.md docs/wrf-wps.md
