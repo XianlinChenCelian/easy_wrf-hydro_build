@@ -35,6 +35,8 @@ CI 检查 Python 包、脚本和文档，**不代表所有编译器都完成了�
 Linux、WSL2 和 Windows 上的 Linux 虚拟机在各自的 Linux 终端使用同一命令。
 先准备配套源码和工具链，详见[三版本安装指南](docs/versioned-install.md)。
 
+三个版本均有可选的 WRF/WPS 源码扩展。编译会复用同一工具链的 NetCDF，版本组合与验收进度见 [WRF/WPS 扩展](docs/wrf-wps.md)。
+
 ## 安装
 
 在 Linux 终端中安装 Python 3.9+、Git 和 `venv`。Ubuntu 用户可以先执行：

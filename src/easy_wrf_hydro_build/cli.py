@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
-from subprocess import CalledProcessError
+from subprocess import CalledProcessError, TimeoutExpired
 
 from .archives import WRF_HYDRO_RELEASES
+from .atmosphere import build_atmosphere
 from .bootstrap import BootstrapConfig, bootstrap
 from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
@@ -108,7 +110,28 @@ def main(argv: list[str] | None = None) -> int:
     bootstrap_cmd.add_argument("--example-np", type=int, default=1)
     bootstrap_cmd.add_argument("--dry-run", action="store_true")
 
+    atmosphere = subparsers.add_parser("build-atmosphere", help="Build optional WRF and WPS in a fresh directory (preview).")
+    atmosphere.add_argument("--shared-dir", required=True)
+    atmosphere.add_argument("--prefix", required=True)
+    atmosphere.add_argument("--netcdf", required=True)
+    atmosphere.add_argument("--wrf-hydro-version", choices=WRF_HYDRO_RELEASES, required=True)
+    atmosphere.add_argument("--compiler-family", choices=["gnu", "intel"], required=True)
+    atmosphere.add_argument("--jobs", type=int, default=4)
+    atmosphere.add_argument("--dry-run", action="store_true")
+
     args = parser.parse_args(argv)
+
+    if args.command == "build-atmosphere":
+        try:
+            result = build_atmosphere(
+                Path(args.shared_dir).expanduser().resolve(), Path(args.prefix).expanduser().resolve(),
+                Path(args.netcdf).expanduser().resolve(), args.wrf_hydro_version,
+                args.compiler_family, args.jobs, args.dry_run,
+            )
+        except (ValueError, OSError, CalledProcessError, TimeoutExpired) as exc:
+            atmosphere.error(str(exc))
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command == "init-case":
         case = EwhbCase(Path(args.cases_home).expanduser().resolve(), args.case_name)

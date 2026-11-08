@@ -13,6 +13,8 @@
 3. [完整构建流程 / Bootstrap](bootstrap.md)：英文构建说明、产物和重建行为。
 4. [可运行示例 / Examples](../examples/README.md)：Intel 和 GNU 命令脚本。
 
+- [WRF/WPS 扩展与课程路线](wrf-wps.md)：三组版本依据、可选编译与分阶段验收。
+
 ## 兼容性和排查 / Compatibility
 
 - [验证记录](verified-builds.md)：已实际运行和仅完成静态检查的组合。

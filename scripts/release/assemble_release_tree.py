@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 
 from build_offline_bundle import CASES, sha256
+from build_atmosphere_bundle import ATMOSPHERE_PROFILES, build as build_atmosphere_addon
 
 
 PLATFORMS = ('linux-x86_64', 'linux-aarch64', 'osx-arm64', 'windows-x86_64')
@@ -74,6 +75,16 @@ def create_intel_recipe(output, version, model_archives, dependency_archives):
 
 def stage(args):
     args.output.mkdir(parents=True, exist_ok=False)
+    add_ons = {}
+    if args.atmosphere_archives:
+        for version, profile in ATMOSPHERE_PROFILES.items():
+            artifact = build_atmosphere_addon(
+                version, args.atmosphere_archives, args.output / 'atmosphere-preview' / version,
+            )
+            add_ons[version] = {
+                'kind': 'optional-source-preview', 'wrf': profile['wrf'], 'wps': profile['wps'],
+                'artifact': str(artifact.relative_to(args.output)),
+            }
     entries = []
     for platform in PLATFORMS:
         for compiler in ('gnu', 'intel'):
@@ -104,6 +115,8 @@ def stage(args):
                     if 'remote_alternative' in entry:
                         note += f"Remote x86_64 Intel route: {entry['remote_alternative']}.\n"
                     (leaf / 'README.txt').write_text(note)
+                if version in add_ons and entry['kind'] != 'unsupported-native':
+                    entry['atmosphere'] = add_ons[version]
                 entries.append(entry)
     (args.output / 'index.json').write_text(json.dumps(entries, indent=2) + '\n')
 
@@ -111,10 +124,14 @@ def stage(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--gnu-bundles', type=Path)
+    parser.add_argument('--atmosphere-archives', type=Path,
+                        help='Add optional versioned WRF/WPS source previews to the full release index.')
     parser.add_argument('--intel-version', choices=CASES, help='Stage just one Intel source recipe.')
     for name in ('model-archives', 'dependency-archives', 'output'):
         parser.add_argument(f'--{name}', type=Path, required=True)
     args = parser.parse_args()
+    if args.atmosphere_archives and (args.intel_version or not args.gnu_bundles):
+        parser.error('--atmosphere-archives requires a full tree with --gnu-bundles.')
     if args.intel_version:
         leaf = args.output / 'linux-x86_64' / 'intel' / args.intel_version
         leaf.mkdir(parents=True, exist_ok=True)

@@ -22,6 +22,10 @@ releases/
 
 维护者用 `scripts/release/assemble_release_tree.py` 将已有 GNU 包、模型与算例源包和依赖源包组装到一个新目录。脚本验证 GNU 包的 SHA256，为 Intel 源码配方生成依赖与完整性清单。现有版本附件可继续按原方法使用。
 
+需要 WRF/WPS 的用户可另选与 Hydro 版本对应的源码附加包。每个附加包包含相应的 WRF/WPS、GRIB2 依赖和编译入口，安装时复用所选 GNU 或 Intel 环境。版本搭配、主机要求和构建说明见 [WRF/WPS 扩展](wrf-wps.md)。
+
+完整发布目录可通过 `--atmosphere-archives /path/to/wrf-wps-sources` 加入这些附加包。索引会把适用的系统和编译器条目指向同一份对应版本源码。
+
 ## 从 GitHub 源码制作单个 Intel 配方
 
 先按[源码归档清单](source-archives.md)准备四个依赖源包。再下载所选版本的模型源包及对应 Croton 算例，文件名见[版本安装说明](versioned-install.md)。在仓库根目录执行：
