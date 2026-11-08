@@ -8,6 +8,7 @@ The CLI accepts command-line arguments; it does **not** load YAML configuration 
 | Command | Purpose | Required paths |
 | --- | --- | --- |
 | `bootstrap` | Build local dependencies and WRF-Hydro | `--shared-dir`, `--prefix` |
+| `build-atmosphere` | Build the optional [WRF/WPS pair](wrf-wps.md) | `--shared-dir`, `--prefix`, `--netcdf` |
 | `doctor` | Check an existing source and library environment | `--wrf-hydro-root`, `--netcdf` |
 | `compile` | Compile an existing WRF-Hydro tree | `--wrf-hydro-root`, `--netcdf` |
 | `write-env` | Write a runtime shell script | `--wrf-hydro-root`, `--netcdf`, `--output` |
@@ -17,7 +18,11 @@ The CLI accepts command-line arguments; it does **not** load YAML configuration 
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--compiler-family` | `intel` | `intel` or `gnu`; choose explicitly |
+| `--wrf-hydro-version` | Unset | Select `5.1.2`, `5.2.0`, or `5.4.0` and match the model and Croton archive names |
+| `--netcdf` | Unset | Reuse NetCDF-C and NetCDF-Fortran from an existing prefix with both config tools in `bin` |
+| `--build-netcdf` | Off | Build zlib, HDF5 and NetCDF from local sources. Available for the 5.4.0 CMake route as well. |
+| `--compiler-family` | `gnu` for an explicit version, otherwise `intel` | GNU or Intel route |
+| `--site-toolchain` | Off | Use the Intel compiler and MPI already loaded by the HPC site for a selected model version. |
 | `--intel-home` | `~/intel/parallel_studio_xe_2018` | Intel installation root for bootstrap |
 | `--jobs` | Available CPU count | Parallel jobs for dependency `make` commands |
 | `--land-model` | `NoahMP` | `NoahMP` or `Noah` |
@@ -31,6 +36,8 @@ The CLI accepts command-line arguments; it does **not** load YAML configuration 
 | `--profile` | `intel2018-linux` / `gnu-linux` | Script metadata label; does not select a different compatibility implementation |
 
 `--skip-deps` is for matching libraries already in `<prefix>/<family>_libs` and still requires the source archive inventory. It does not select an arbitrary external NetCDF directory. Use `compile` for that workflow.
+
+The 5.4.0 CMake route normally uses installed libraries. It can find them through `nc-config` and `nf-config` on `PATH` when `--netcdf` is omitted. Use `--build-netcdf` for a source build in a fresh prefix. See the [versioned install guide](versioned-install.md).
 
 ## Existing Dependencies
 

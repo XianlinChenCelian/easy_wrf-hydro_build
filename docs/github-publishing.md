@@ -55,11 +55,17 @@ easy_wrf-hydro_build v0.1.0 - initial beta
 Suggested release summary:
 
 ```text
-Initial beta release with an end-to-end verified Intel classic WRF-Hydro 5.1.2
-route, an isolated dependency stack, runtime environment generation, Croton NWM
-verification, and a GNU build branch ready for clean-host integration testing.
+Preview for WRF-Hydro 5.1.2, 5.2.0 and 5.4.0 with a system/compiler/version
+chooser. Intel users can use a loaded HPC toolchain or install Intel oneAPI
+from the vendor on their own x86_64 Linux or WSL2 system. The repository
+includes a per-version source recipe builder and documents the validation
+status of each toolchain.
 ```
 
 Do not attach Intel installers, Intel licenses, WRF-Hydro source archives,
 dependency source archives, example datasets, or packed personal environments
 to the GitHub release.
+
+Link the GitHub release to the [release matrix](release-bundles.md) and
+[oneAPI installation guide](oneapi-install.md). Users can assemble a selected
+Intel recipe from the upstream archives listed in those guides.

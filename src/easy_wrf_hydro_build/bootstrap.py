@@ -8,7 +8,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
-from .archives import SourceArchive, discover_archives, require_archives
+from .archives import WRF_HYDRO_RELEASES, SourceArchive, discover_archives, require_archives
 from .shell import CommandResult, run
 from .templates import intel_environment_block
 
@@ -28,10 +28,18 @@ class BootstrapConfig:
     run_example: bool = False
     example_config: str = "NWM"
     example_np: int = 1
+    wrf_hydro_version: str | None = None
+    netcdf_prefix: Path | None = None
+    build_netcdf: bool = False
+    site_toolchain: bool = False
+
+    @property
+    def uses_cmake(self) -> bool:
+        return self.wrf_hydro_version == "5.4.0"
 
     @property
     def netcdf(self) -> Path:
-        return self.prefix / f"{self.compiler_family}_libs"
+        return self.netcdf_prefix or self.prefix / f"{self.compiler_family}_libs"
 
     @property
     def script_path(self) -> Path:
@@ -84,12 +92,12 @@ stage_croton_example() {{
     exit 1
   fi
   mkdir -p "$EXAMPLE_RUN_DIR"
-  cp -a "$WRF_HYDRO_ROOT/Run/." "$EXAMPLE_RUN_DIR/"
+  cp -a "$MODEL_RUN_DIR/." "$EXAMPLE_RUN_DIR/"
   cp -a "$CROTON_CASE_ROOT/$EXAMPLE_CONFIG/." "$EXAMPLE_RUN_DIR/"
   if [ ! -e "$EXAMPLE_RUN_DIR/FORCING" ]; then
     ln -s "$CROTON_CASE_ROOT/FORCING" "$EXAMPLE_RUN_DIR/FORCING"
   fi
-  cp "$WRF_HYDRO_ROOT/Run/{executable}" "$EXAMPLE_RUN_DIR/{executable}"
+  cp "$MODEL_RUN_DIR/{executable}" "$EXAMPLE_RUN_DIR/{executable}"
 }}
 
 run_croton_example() {{
@@ -105,6 +113,10 @@ run_step run_croton_$EXAMPLE_CONFIG run_croton_example
 
 def _compiler_setup_block(config: BootstrapConfig) -> str:
     if config.compiler_family == "gnu":
+        if config.uses_cmake or config.netcdf_prefix is not None:
+            return """export CC="${CC:-gcc}"
+export FC="${FC:-gfortran}"
+"""
         return """export CC=gcc
 export CXX=g++
 export FC=gfortran
@@ -115,8 +127,30 @@ export CXXFLAGS="${CXXFLAGS:-} -O2"
 export FCFLAGS="${FCFLAGS:-} -O2"
 """
 
-    if config.intel_home is None:
-        raise ValueError("Intel compiler builds require intel_home")
+    if config.intel_home is None and not config.site_toolchain:
+        raise ValueError("Intel compiler builds require intel_home or a loaded site toolchain")
+
+    if config.wrf_hydro_version is not None:
+        fc = config.compiler_option
+        if fc not in {"ifort", "ifx"}:
+            raise ValueError("Select ifort or ifx for the versioned Intel route.")
+        cc, cxx = ("icc", "icpc") if fc == "ifort" else ("icx", "icpx")
+        activation = "" if config.site_toolchain else intel_environment_block('$INTEL_HOME')
+        return f"""{activation}
+for compiler in {fc} {cc} "$MPI_WRAPPER"; do
+  if ! command -v "$compiler" >/dev/null; then
+    echo "Intel toolchain is missing $compiler in the selected environment. Load the site Intel compiler and MPI modules first when using --site-toolchain." >&2
+    exit 1
+  fi
+done
+if ! "$MPI_WRAPPER" --version | grep -qi '{fc}'; then
+  echo "The MPI wrapper must use the selected Intel Fortran compiler ({fc})." >&2
+  exit 1
+fi
+export CC={cc} CXX={cxx} FC={fc} F77={fc} F90={fc}
+export CFLAGS="${{CFLAGS:-}} -O2"
+export FCFLAGS="${{FCFLAGS:-}} -O2"
+"""
 
     return f"""{intel_environment_block('$INTEL_HOME')}
 if command -v ifort >/dev/null 2>&1; then
@@ -154,7 +188,7 @@ export FCFLAGS="${{FCFLAGS:-}} -O2"
 
 def _runtime_env_block(config: BootstrapConfig) -> str:
     intel_lines = ""
-    if config.compiler_family == "intel":
+    if config.compiler_family == "intel" and not config.site_toolchain:
         if config.intel_home is None:
             raise ValueError("Intel compiler builds require intel_home")
         intel_lines = """export INTEL_HOME="$INTEL_HOME"
@@ -170,6 +204,12 @@ source_easy_wrf_hydro_intel_env() {
     return 1
   fi
 
+  if [ -f "\\$INTEL_HOME/oneapi-vars.sh" ]; then
+    source "\\$INTEL_HOME/oneapi-vars.sh"
+    if [ "\\$had_nounset" = "1" ]; then set -u; fi
+    return 0
+  fi
+
   if [ -f "\\$INTEL_HOME/setvars.sh" ]; then
     source "\\$INTEL_HOME/setvars.sh" --force >/dev/null 2>&1 || source "\\$INTEL_HOME/setvars.sh"
     if [ "\\$had_nounset" = "1" ]; then set -u; fi
@@ -183,7 +223,7 @@ source_easy_wrf_hydro_intel_env() {
     compiler_vars=\\$(find "\\$INTEL_HOME" -path "*/bin/compilervars.sh" -print -quit 2>/dev/null)
   fi
   if [ -z "\\$compiler_vars" ]; then
-    echo "Cannot find Intel compilervars.sh or setvars.sh under \\$INTEL_HOME" >&2
+    echo "Cannot find Intel oneapi-vars.sh, setvars.sh or compilervars.sh under \\$INTEL_HOME" >&2
     if [ "\\$had_nounset" = "1" ]; then set -u; fi
     return 1
   fi
@@ -212,11 +252,12 @@ source_easy_wrf_hydro_intel_env
     return f"""cat > "$PREFIX/{config.env_script_name}" <<EOF
 #!/usr/bin/env bash
 export WRFHYDRO_ROOT="$WRF_HYDRO_ROOT"
+export WRFHYDRO_RUN_DIR="$MODEL_RUN_DIR"
 export NETCDF="$NETCDF"
 export NETCDF_INC="\\$NETCDF/include"
 export NETCDF_LIB="\\$NETCDF/lib"
 {intel_lines}export PATH="\\$NETCDF/bin:\\$PATH"
-export LD_LIBRARY_PATH="\\$NETCDF/lib:\\${{LD_LIBRARY_PATH:-}}"
+export $LIBRARY_PATH_NAME="\\$NETCDF/lib\\${{$LIBRARY_PATH_NAME:+:\\${{$LIBRARY_PATH_NAME}}}}"
 export WRF_HYDRO=1
 export HYDRO_D=0
 export SPATIAL_SOIL=1
@@ -229,11 +270,92 @@ chmod +x "$PREFIX/{config.env_script_name}"
 """
 
 
-def bootstrap_script(config: BootstrapConfig, archives: dict[str, SourceArchive]) -> str:
+def _model_build_block(config: BootstrapConfig) -> str:
+    if config.uses_cmake:
+        return f"""WRF_HYDRO_ROOT=$(unpack "$WRF_HYDRO_ARCHIVE")
+test -f "$WRF_HYDRO_ROOT/CMakeLists.txt"
+MODEL_RUN_DIR="$BUILD_DIR/Run"
+
+compile_wrf_hydro() {{
+  cmake -S "$WRF_HYDRO_ROOT" -B "$BUILD_DIR" \\
+    -DCMAKE_PREFIX_PATH="$NETCDF;$(nc-config --prefix)" \\
+    -DCMAKE_Fortran_COMPILER="$MPI_WRAPPER" \\
+    -DHYDRO_LSM={config.land_model} -DWRF_HYDRO=1 -DSPATIAL_SOIL=1
+  cmake --build "$BUILD_DIR" --parallel "$JOBS"
+  test -x "$MODEL_RUN_DIR/wrf_hydro_{config.land_model}.exe"
+}}
+"""
+
     compile_script = "./compile_offline_NoahMP.sh"
     if config.land_model.lower() == "noah":
         compile_script = "./compile_offline_Noah.sh"
+    fallback = ""
+    if config.wrf_hydro_version is None:
+        fallback = """
+if [ -z "$WRF_HYDRO_ROOT" ]; then
+  WRF_HYDRO_ROOT=$(find "$SRC_DIR" -path '*/trunk/NDHMS/configure' -type f -print -quit)
+fi"""
+    configure_option = "ifort" if config.compiler_family == "intel" and config.compiler_option == "ifx" else config.compiler_option
+    legacy_gnu_flags = ""
+    if config.wrf_hydro_version == "5.1.2" and config.compiler_family == "gnu":
+        legacy_gnu_flags = """  fortran_version=$("$MPI_WRAPPER" -dumpversion)
+  if [ "${fortran_version%%.*}" -ge 10 ]; then
+    sed '/^F90FLAGS[[:space:]]*=/s/$/ -fallow-argument-mismatch/' macros > macros.ewhb
+    mv macros.ewhb macros
+  fi
+"""
+    return f"""WRF_TOP=$(unpack "$WRF_HYDRO_ARCHIVE")
+WRF_HYDRO_ROOT=$(find "$WRF_TOP" -path '*/trunk/NDHMS/configure' -type f -print -quit)
+{fallback}
+if [ -z "$WRF_HYDRO_ROOT" ]; then
+  echo "Cannot find WRF-Hydro trunk/NDHMS/configure after extracting $WRF_HYDRO_ARCHIVE" >&2
+  exit 1
+fi
+WRF_HYDRO_ROOT=$(dirname "$WRF_HYDRO_ROOT")
+MODEL_RUN_DIR="$WRF_HYDRO_ROOT/Run"
+
+compile_wrf_hydro() {{
+  cd "$WRF_HYDRO_ROOT"
+  cat > setEnvar_easy_wrf_hydro.sh <<EOF
+export WRF_HYDRO=1
+export HYDRO_D=0
+export SPATIAL_SOIL=1
+export WRF_HYDRO_RAPID=0
+export WRFIO_NCD_LARGE_FILE_SUPPORT=1
+export NCEP_WCOSS=0
+export WRF_HYDRO_NUDGING=0
+EOF
+  ./configure {_quote(configure_option)}
+  sed {_quote('s/^COMPILER90[[:space:]]*=.*/COMPILER90  = ' + config.mpi_wrapper + '/')} macros > macros.ewhb
+  mv macros.ewhb macros
+{legacy_gnu_flags}  if [ "$USE_EXISTING_NETCDF" = 1 ]; then
+    printf '\\nNETCDFLIB = %s\\n' "$(nf-config --flibs)" >> macros
+  fi
+  grep '^COMPILER90' macros
+  {compile_script} setEnvar_easy_wrf_hydro.sh 2>&1 | tee "$LOG_DIR/compile_offline_{config.land_model}.log"
+  test -x "$MODEL_RUN_DIR/wrf_hydro_{config.land_model}.exe"
+}}
+"""
+
+
+def bootstrap_script(config: BootstrapConfig, archives: dict[str, SourceArchive]) -> str:
     intel_home = _quote(config.intel_home) if config.intel_home is not None else '""'
+    uses_existing_netcdf = config.netcdf_prefix is not None or (config.uses_cmake and not config.build_netcdf)
+    netcdf_path = f'"$PREFIX/{config.compiler_family}_libs"'
+    netcdf_check = ""
+    if config.netcdf_prefix is not None:
+        netcdf_path = _quote(config.netcdf_prefix)
+        netcdf_check = """
+if [ ! -x "$NETCDF/bin/nf-config" ] || [ ! -x "$NETCDF/bin/nc-config" ]; then
+  echo "Expected nc-config and nf-config under $NETCDF/bin." >&2
+  exit 1
+fi
+"""
+    elif config.uses_cmake and not config.build_netcdf:
+        netcdf_path = '''$(command -v nf-config >/dev/null || {
+  echo "Activate NetCDF-Fortran or specify its installation with --netcdf." >&2
+  exit 1
+}; nf-config --prefix)'''
 
     return f"""#!/usr/bin/env bash
 set -eo pipefail
@@ -243,16 +365,28 @@ COMPILER_FAMILY={_quote(config.compiler_family)}
 SHARED_DIR={_quote(config.shared_dir)}
 PREFIX={_quote(config.prefix)}
 INTEL_HOME={intel_home}
-NETCDF="$PREFIX/{config.compiler_family}_libs"
 SRC_DIR="$PREFIX/sources"
 BUILD_DIR="$PREFIX/build"
 LOG_DIR="$PREFIX/logs"
 JOBS={config.jobs}
 SKIP_DEPS={1 if config.skip_deps else 0}
+USE_EXISTING_NETCDF={int(uses_existing_netcdf)}
+MPI_WRAPPER={_quote(config.mpi_wrapper)}
 
 {_archive_exports(archives)}
 
-mkdir -p "$PREFIX" "$SRC_DIR" "$BUILD_DIR" "$LOG_DIR" "$NETCDF"
+case "$(uname -s)" in
+  Darwin) LIBRARY_PATH_NAME=DYLD_LIBRARY_PATH ;;
+  Linux) LIBRARY_PATH_NAME=LD_LIBRARY_PATH ;;
+  *) echo "Run inside macOS or Linux (including WSL and Linux virtual machines)." >&2; exit 1 ;;
+esac
+if [ "$LIBRARY_PATH_NAME" = DYLD_LIBRARY_PATH ] && [ "$COMPILER_FAMILY" = intel ]; then
+  echo "Choose the GNU compiler route on macOS." >&2
+  exit 1
+fi
+NETCDF={netcdf_path}
+{netcdf_check}
+mkdir -p "$PREFIX" "$SRC_DIR" "$BUILD_DIR" "$LOG_DIR"
 
 log() {{
   printf '\\n[%s] %s\\n' "$(date '+%F %T')" "$*"
@@ -292,8 +426,10 @@ set -u
 export CPPFLAGS="-I$NETCDF/include ${{CPPFLAGS:-}}"
 export LDFLAGS="-L$NETCDF/lib ${{LDFLAGS:-}}"
 export PATH="$NETCDF/bin:$PATH"
-export LD_LIBRARY_PATH="$NETCDF/lib:${{LD_LIBRARY_PATH:-}}"
+export "$LIBRARY_PATH_NAME=$NETCDF/lib${{!LIBRARY_PATH_NAME:+:${{!LIBRARY_PATH_NAME}}}}"
 
+if [ "$USE_EXISTING_NETCDF" = 0 ]; then
+mkdir -p "$NETCDF"
 build_zlib() {{
   local src
   src=$(unpack "$ZLIB_ARCHIVE")
@@ -338,62 +474,89 @@ else
   run_step netcdf_c build_netcdf_c
   run_step netcdf_fortran build_netcdf_fortran
 fi
+else
+  for tool in "$MPI_WRAPPER" nc-config nf-config; do
+    if ! command -v "$tool" >/dev/null; then
+      echo "Missing $tool. Activate a matching MPI and NetCDF-Fortran toolchain." >&2
+      exit 1
+    fi
+  done
+  log "using installed NetCDF at $NETCDF"
+  cat > "$BUILD_DIR/ewhb-toolchain.f90" <<'EOF'
+program toolchain
+  use mpi
+  use netcdf
+  implicit none
+  integer :: major, minor, ierr
+  call MPI_Get_version(major, minor, ierr)
+  print *, nf90_inq_libvers()
+end program toolchain
+EOF
+  read -r -a netcdf_includes <<< "$(nf-config --fflags)"
+  read -r -a netcdf_libraries <<< "$(nf-config --flibs)"
+  if ! "$MPI_WRAPPER" "${{netcdf_includes[@]}}" "$BUILD_DIR/ewhb-toolchain.f90" \\
+       "${{netcdf_libraries[@]}}" -o "$BUILD_DIR/ewhb-toolchain" \\
+       > "$LOG_DIR/toolchain.log" 2>&1; then
+    cat "$LOG_DIR/toolchain.log" >&2
+    echo "The MPI wrapper cannot compile and link with the selected NetCDF-Fortran." >&2
+    exit 1
+  fi
+fi
 
-WRF_TOP=$(unpack "$WRF_HYDRO_ARCHIVE")
-WRF_HYDRO_ROOT=$(find "$WRF_TOP" -path '*/trunk/NDHMS/configure' -type f -print -quit)
-if [ -z "$WRF_HYDRO_ROOT" ]; then
-  WRF_HYDRO_ROOT=$(find "$SRC_DIR" -path '*/trunk/NDHMS/configure' -type f -print -quit)
-fi
-if [ -z "$WRF_HYDRO_ROOT" ]; then
-  echo "Cannot find WRF-Hydro trunk/NDHMS/configure after extracting $WRF_HYDRO_ARCHIVE" >&2
-  exit 1
-fi
-WRF_HYDRO_ROOT=$(dirname "$WRF_HYDRO_ROOT")
+{_model_build_block(config)}
 printf '%s\\n' "$WRF_HYDRO_ROOT" > "$PREFIX/wrf_hydro_root.txt"
 
 {_runtime_env_block(config)}
 
-compile_wrf_hydro() {{
-  cd "$WRF_HYDRO_ROOT"
-  cat > setEnvar_easy_wrf_hydro.sh <<EOF
-export WRF_HYDRO=1
-export HYDRO_D=0
-export SPATIAL_SOIL=1
-export WRF_HYDRO_RAPID=0
-export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-export NCEP_WCOSS=0
-export WRF_HYDRO_NUDGING=0
-EOF
-  ./configure {config.compiler_option}
-  sed -i 's/^COMPILER90[[:space:]]*=.*/COMPILER90  = {config.mpi_wrapper}/' macros
-  grep '^COMPILER90' macros
-  {compile_script} setEnvar_easy_wrf_hydro.sh 2>&1 | tee "$LOG_DIR/compile_offline_{config.land_model}.log"
-  test -x "Run/wrf_hydro_{config.land_model}.exe"
-  ldd "Run/wrf_hydro_{config.land_model}.exe" | tee "$LOG_DIR/ldd_wrf_hydro_{config.land_model}.log"
+run_step wrf_hydro_compile compile_wrf_hydro
+EXECUTABLE="$MODEL_RUN_DIR/wrf_hydro_{config.land_model}.exe"
+test -x "$EXECUTABLE"
+if [ "$LIBRARY_PATH_NAME" = DYLD_LIBRARY_PATH ]; then
+  otool -L "$EXECUTABLE" | tee "$LOG_DIR/otool_wrf_hydro_{config.land_model}.log"
+else
+  ldd "$EXECUTABLE" | tee "$LOG_DIR/ldd_wrf_hydro_{config.land_model}.log"
   if grep -q 'not found' "$LOG_DIR/ldd_wrf_hydro_{config.land_model}.log"; then
     echo "Missing runtime libraries; inspect $LOG_DIR/ldd_wrf_hydro_{config.land_model}.log" >&2
     exit 1
   fi
-}}
-
-run_step wrf_hydro_compile compile_wrf_hydro
+fi
 {_example_block(config)}
 
 log "bootstrap complete"
 echo "Environment script: $PREFIX/{config.env_script_name}"
 echo "WRF-Hydro root: $WRF_HYDRO_ROOT"
+echo "Model executable: $EXECUTABLE"
 """
 
 
 def write_bootstrap_script(config: BootstrapConfig) -> Path:
-    discovered = discover_archives(config.shared_dir)
-    required = require_archives(discovered)
+    version = config.wrf_hydro_version
+    if config.site_toolchain and (config.compiler_family != "intel" or version is None or config.intel_home is not None):
+        raise ValueError("--site-toolchain requires a versioned Intel build without --intel-home.")
+    if config.build_netcdf and config.netcdf_prefix is not None:
+        raise ValueError("Choose either source-built NetCDF or an existing NetCDF prefix.")
+    discovered = discover_archives(config.shared_dir, wrf_hydro_version=version)
+    if version is not None and discovered["wrf_hydro"] is None:
+        raise FileNotFoundError(f"Missing wrf_hydro_nwm_public-{version}.tar.gz in {config.shared_dir}")
+    if (config.uses_cmake and not config.build_netcdf) or config.netcdf_prefix is not None:
+        required = require_archives(discovered, ("wrf_hydro",))
+    else:
+        required = require_archives(discovered)
     if config.run_example:
         example = discovered.get("croton_example")
         if example is None:
-            raise FileNotFoundError("Missing required Croton example archive: croton_NY_example_testcase.tar.gz")
+            archive = WRF_HYDRO_RELEASES[version or "5.1.2"]
+            raise FileNotFoundError(f"Missing required Croton example archive: {archive}")
         required["croton_example"] = example
     config.prefix.mkdir(parents=True, exist_ok=True)
+    version_file = config.prefix / "wrf_hydro_version.txt"
+    if version_file.exists():
+        if version_file.read_text(encoding="utf-8").strip() != version:
+            raise ValueError("This prefix belongs to another WRF-Hydro version; choose a new --prefix.")
+    elif version is not None:
+        if (config.prefix / "logs").exists():
+            raise ValueError("Choose a new --prefix for the versioned build.")
+        version_file.write_text(f"{version}\n", encoding="utf-8")
     path = config.script_path
     path.write_text(bootstrap_script(config, required), encoding="utf-8")
     _make_executable(path)
@@ -401,6 +564,8 @@ def write_bootstrap_script(config: BootstrapConfig) -> Path:
 
 
 def bootstrap(config: BootstrapConfig, *, dry_run: bool = False) -> Path | CommandResult:
+    if not dry_run and os.name == "nt":
+        raise ValueError("Run this command inside WSL or a Linux virtual machine on Windows.")
     script = write_bootstrap_script(config)
     if dry_run:
         return script

@@ -20,6 +20,12 @@ source_easy_wrf_hydro_intel_env() {{
     return 1
   fi
 
+  if [ -f "$INTEL_HOME/oneapi-vars.sh" ]; then
+    source "$INTEL_HOME/oneapi-vars.sh"
+    if [ "$had_nounset" = "1" ]; then set -u; fi
+    return 0
+  fi
+
   if [ -f "$INTEL_HOME/setvars.sh" ]; then
     source "$INTEL_HOME/setvars.sh" --force >/dev/null 2>&1 || source "$INTEL_HOME/setvars.sh"
     if [ "$had_nounset" = "1" ]; then set -u; fi
@@ -33,7 +39,7 @@ source_easy_wrf_hydro_intel_env() {{
     compiler_vars=$(find "$INTEL_HOME" -path "*/bin/compilervars.sh" -print -quit 2>/dev/null)
   fi
   if [ -z "$compiler_vars" ]; then
-    echo "Cannot find Intel compilervars.sh or setvars.sh under $INTEL_HOME" >&2
+    echo "Cannot find Intel oneapi-vars.sh, setvars.sh or compilervars.sh under $INTEL_HOME" >&2
     if [ "$had_nounset" = "1" ]; then set -u; fi
     return 1
   fi
