@@ -36,6 +36,8 @@ ewhb build-atmosphere \
 
 在 Ubuntu 或 WSL2 的 Ubuntu 来宾中，`csh`、`m4`、`cpp`、`perl`、`make` 和 `binutils` 由系统包提供。没有管理员权限时，向系统管理员说明缺失的具体命令。Mac 路线需要 Command Line Tools 与 GNU Fortran 环境；构建目标应位于支持符号链接、区分大小写的文件系统上。
 
+在 4 GiB 左右的虚拟机上，一次构建一个版本并使用 `--jobs 1`。有些 WRF Fortran 文件单独编译就需要数 GiB 内存。日志出现 `Killed signal terminated program` 时，先核对来宾或调度器的内存限制，再降低并行度。
+
 Apple Silicon 的 Fortran 源码预处理使用 GNU `cpp`。随原 GNU 环境激活时会寻找同目录的工具；自备工具链可用 `CPP` 指定 GNU `cpp` 的路径。
 
 ## 离线材料
@@ -55,7 +57,16 @@ Apple Silicon 的 Fortran 源码预处理使用 GNU `cpp`。随原 GNU 环境激
 
 ## 验收与课程路线
 
-每组分别记录源码校验、编译、程序启动、真实数据流程、耦合科学结果五种状态。`compiled` 仅表示 wrf.exe、real.exe、geogrid.exe、ungrib.exe、metgrid.exe 生成，不代表已有真实流域运行结果。已通过的 Hydro Croton 验证也不能转用来证明 WRF/WPS 正确。
+三套版本在以下四种环境均生成 `wrf.exe`、`real.exe`、`geogrid.exe`、`ungrib.exe` 和 `metgrid.exe`。十二组 `ungrib` 对同一个 NOAA GFS 小型 GRIB2 样本生成了字节一致的 WPS 中间文件。
+
+| 环境 | 工具链 | 三版本验收 |
+| --- | --- | --- |
+| 超算 x86_64 Linux | GNU Fortran 9.3 + OpenMPI 4.1.5 | 通过编译、动态库检查和样本解码 |
+| 超算 x86_64 Linux | Intel Classic ifort 2021.3 + Intel MPI | 通过编译、动态库检查和样本解码 |
+| Apple Silicon 原生 macOS | 原 GNU 离线包环境 | 通过原生编译和样本解码。5.1.2 先完成 WRF，再用修正后的选项重跑 WPS |
+| Ubuntu ARM64 虚拟机 | 原 GNU 离线包环境 | 通过编译、动态库检查和样本解码。5.1.2 分阶段重跑 WPS，5.2.0 在内存不足后以单进程补齐 WRF，再构建 WPS |
+
+真实 Windows WSL2 与 Intel `ifx` 的 WRF/WPS 构建需分别验收。样本只有一个时刻的 2 米气温字段，覆盖 GRIB2 解码与中间文件输出。完整的 `geogrid`、`metgrid`、`real.exe` 和双向耦合使用完整气象数据及地理输入另行验收。
 
 1. 模块一、二：版本锁定、依赖、平台编译、环境诊断和安装恢复。
 2. 模块三：建立固定地理数据清单，完成 namelist.wps → geogrid → ungrib → metgrid；验证坐标、分辨率与时间轴。

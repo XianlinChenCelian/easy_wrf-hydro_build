@@ -336,7 +336,14 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
             for relative in required:
                 result = source / relative
                 if not result.is_file() or result.stat().st_size == 0:
-                    raise ValueError(f"{component} did not produce {relative}; inspect {logs}.")
+                    compile_log = logs / f"{component}-compile.log"
+                    with compile_log.open(errors="replace") as stream:
+                        killed = any("Killed signal terminated program" in line or
+                                     "out of memory" in line.lower() for line in stream)
+                    detail = f"{component} did not produce {relative}; inspect {compile_log}."
+                    if killed:
+                        detail += " A compiler process was killed. Check the memory limit and retry with --jobs 1."
+                    raise ValueError(detail)
                 if relative.endswith(".exe") and not os.access(result, os.X_OK):
                     raise ValueError(f"{result} is not executable; check filesystem permissions/noexec.")
         plan.update(status="compiled", wrf_dir=str(wrf), wps_dir=str(wps), runtime_validation="pending")
