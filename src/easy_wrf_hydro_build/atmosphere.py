@@ -322,9 +322,13 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
             if gnu_major >= 10 and component == "WPS" and profile["wps"] in ("4.2", "4.3"):
                 with config.open("a") as stream:
                     stream.write("\nFFLAGS += -fallow-argument-mismatch\nF77FLAGS += -fallow-argument-mismatch\n")
-            if gnu_major >= 10 and component == "WRF" and profile["wrf"] == "4.2":
-                with config.open("a") as stream:
-                    stream.write("\nFCBASEOPTS_NO_G += -fallow-argument-mismatch -fallow-invalid-boz\n")
+            if gnu_major >= 10 and component == "WRF":
+                config_text = config.read_text()
+                flags = [flag for flag in ("-fallow-argument-mismatch", "-fallow-invalid-boz")
+                         if flag not in config_text]
+                if flags:
+                    with config.open("a") as stream:
+                        stream.write("\nFCBASEOPTS_NO_G += " + " ".join(flags) + "\n")
             command = ["./compile", "em_real", "-j", str(jobs)] if component == "WRF" else ["./compile"]
             run(component + "-compile", command, source)
             required = ("main/wrf.exe", "main/real.exe", "external/io_netcdf/libwrfio_nf.a") if component == "WRF" else (

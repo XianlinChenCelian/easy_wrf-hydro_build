@@ -8,6 +8,7 @@ The CLI accepts command-line arguments; it does **not** load YAML configuration 
 | Command | Purpose | Required paths |
 | --- | --- | --- |
 | `bootstrap` | Build local dependencies and WRF-Hydro | `--shared-dir`, `--prefix` |
+| `build-atmosphere` | Build the optional [WRF/WPS pair](wrf-wps.md) | `--shared-dir`, `--prefix`, `--netcdf` |
 | `doctor` | Check an existing source and library environment | `--wrf-hydro-root`, `--netcdf` |
 | `compile` | Compile an existing WRF-Hydro tree | `--wrf-hydro-root`, `--netcdf` |
 | `write-env` | Write a runtime shell script | `--wrf-hydro-root`, `--netcdf`, `--output` |
