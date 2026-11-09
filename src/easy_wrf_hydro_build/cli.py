@@ -16,7 +16,7 @@ from .bootstrap import BootstrapConfig, bootstrap
 from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
 from .domain import fetch_geog, prepare_domain
-from .forcing import PRODUCTS, fetch_weather as download_weather, prepare_forcing
+from .forcing import DOWNLOAD_PRODUCTS, PRODUCTS, fetch_weather as download_weather, prepare_forcing, prepare_weather
 from .paths import EwhbCase
 from .workflow import compile_wrf_hydro, write_runtime_env
 
@@ -136,12 +136,20 @@ def main(argv: list[str] | None = None) -> int:
     geog.add_argument("--archive", type=Path, help="Use a previously downloaded NCAR archive.")
 
     forcing = subparsers.add_parser("prepare-forcing", help="Convert weather inputs to offline HRLDAS forcing.")
-    forcing.add_argument("--config", type=Path, required=True)
+    weather_source = forcing.add_mutually_exclusive_group(required=True)
+    weather_source.add_argument("--config", type=Path, help="JSON configuration, including custom sources.")
+    weather_source.add_argument("--source", choices=PRODUCTS, help="Use a built-in weather product profile.")
+    forcing.add_argument("--input", dest="files", nargs="+",
+                         help="Local NetCDF, CDS ZIP, Zarr v2, or quoted globs.")
+    forcing.add_argument("--geogrid", help="WPS geo_em.d01.nc for the model land grid.")
+    forcing.add_argument("--start", help="Model start time, ISO 8601 with UTC offset.")
+    forcing.add_argument("--end", help="Model end time, ISO 8601 with UTC offset.")
+    forcing.add_argument("--accumulation", choices=("daily", "hourly"), help="Override accumulation for ERA5-Land.")
     forcing.add_argument("--output", type=Path, required=True)
     forcing.add_argument("--run-dir", type=Path, help="Link a new FORCING directory into an existing run.")
 
     fetch_weather = subparsers.add_parser("fetch-forcing", help="Download domain weather data to a local cache.")
-    fetch_weather.add_argument("--source", choices=PRODUCTS, required=True)
+    fetch_weather.add_argument("--source", choices=DOWNLOAD_PRODUCTS, required=True)
     fetch_weather.add_argument("--geogrid", type=Path, required=True)
     fetch_weather.add_argument("--start", required=True, help="Model start time, ISO 8601 with UTC offset.")
     fetch_weather.add_argument("--end", required=True, help="Model end time, ISO 8601 with UTC offset.")
@@ -154,8 +162,17 @@ def main(argv: list[str] | None = None) -> int:
         try:
             output = args.output.expanduser().resolve()
             if args.command == "prepare-forcing":
-                result = prepare_forcing(args.config.expanduser().resolve(), output,
-                                         args.run_dir.expanduser().resolve() if args.run_dir else None)
+                run_dir = args.run_dir.expanduser().resolve() if args.run_dir else None
+                direct = {key: getattr(args, key) for key in ("files", "geogrid", "start", "end", "accumulation")}
+                if args.config:
+                    if any(value is not None for value in direct.values()):
+                        forcing.error("Use either --config or the direct source arguments.")
+                    result = prepare_forcing(args.config.expanduser().resolve(), output, run_dir)
+                else:
+                    if not all(direct[key] for key in ("files", "geogrid", "start", "end")):
+                        forcing.error("--source requires --input, --geogrid, --start, and --end.")
+                    config = {key: value for key, value in direct.items() if value is not None}
+                    result = prepare_weather({"source": args.source, **config}, Path.cwd(), output, run_dir)
             else:
                 result = download_weather(args.source, args.geogrid.expanduser().resolve(),
                                           args.start, args.end, output)

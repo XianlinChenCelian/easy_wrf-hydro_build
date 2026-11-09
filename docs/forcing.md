@@ -1,64 +1,68 @@
 # 离线气象驱动制备
 
-`ewhb prepare-forcing` 将已下载的气象资料重采样到 `geo_em.d01.nc` 的陆面格点，并生成 WRF-Hydro Noah-MP 离线模式需要的 `YYYYMMDDHH.LDASIN_DOMAIN1`。输入原件、输出和运行目录可分别放在移动硬盘上。格式和时间以 WRF-Hydro 的官方读入程序为准。[WRF-Hydro 驱动手册](https://wrf-hydro.readthedocs.io/en/stable/model-inputs-preproc.html#meteorological-forcing-data) · [NCAR WRF-Hydro Forcing Engine](https://github.com/NCAR/WrfHydroForcing) · [NCAR ESMF 重采样工具](https://ral.ucar.edu/dataset/earth-system-modeling-framework-esmf-regridding-scripts)
+`ewhb prepare-forcing` 把已下载的小时气象资料转换到 `geo_em.d01.nc` 的陆面格点，生成 WRF-Hydro Noah-MP 离线模式使用的 `YYYYMMDDHH.LDASIN_DOMAIN1`。制备全程可以离线进行，原件、工作空间和输出可以放在移动硬盘。[WRF-Hydro 驱动手册](https://wrf-hydro.readthedocs.io/en/stable/model-inputs-preproc.html#meteorological-forcing-data)
 
-| 来源 | 适用场景 | 下载与制备 |
-| --- | --- | --- |
-| NOAA AORC v1.1 | Gasconade 等北美历史模拟，小时资料，约 1 km | `fetch-forcing --source aorc` 按计算域和时间从公开存储取子集。制备时使用 `source: aorc`。[产品变量与时段](https://registry.opendata.aws/noaa-nws-aorc/) |
-| NASA NLDAS-2 FORA NetCDF v2.0 | Gasconade 论文同类的 0.125° 小时资料 | 可用 GES DISC 网页按区裁剪，或用 `fetch-forcing --source nldas2` 下载 NASA 小时原始文件，后者要配置 Earthdata Login 与 GES DISC 授权。长时段宜在 NASA 端裁剪。制备时使用 `source: nldas2`。[NASA FORA 说明](https://ldas.gsfc.nasa.gov/nldas/v2/forcing) · [NASA NetCDF 文件和变量说明](https://hydro1.gesdisc.eosdis.nasa.gov/data/NLDAS/NLDAS2_README.pdf) |
-| ECMWF ERA5-Land | 泾河等全球陆地区域的小时模拟 | 从 CDS 下载原始小时 NetCDF，或配置 CDS API 后用 `fetch-forcing --source era5-land` 按区域和月份请求。制备时使用 `source: era5-land`。[CDS 数据页](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land) · [累计量定义](https://confluence.ecmwf.int/pages/viewpage.action?pageId=239346540) |
-| 中国地面气象要素驱动数据集 CMFD | 泾河论文同类数据，0.1°、3 小时 | 从数据中心下载对应版本和时段，补齐风的两个分量后可走 `custom`。此预览未提供 CMFD 专用下载器或自动风向推断。[CMFD 数据说明](https://data.casearth.cn/dataset/5feae826819aec33049b7c8d) |
-| GFS、HRRR、RAP、WRF、MRMS | 预报、区域模式输出或雷达降水替换 | 可先用 NCAR 的数据源工具生成或重采样。GRIB 预报时效重叠、WRF 逐时输出和 MRMS 单独降水属于不同入口，当前预览提供标准小时文件生成，不直接处理这些原始格式。[NCAR 重采样资料](https://ral.ucar.edu/dataset/earth-system-modeling-framework-esmf-regridding-scripts) |
+## 已有数据，直接转换
 
-## 从下载到运行目录
-
-在流域制备的环境中可直接运行转换。若单独安装，执行 `python -m pip install '.[forcing]'`。下载 AORC 另装 `'.[aorc]'`，下载 NLDAS 装 `earthaccess` 并配置 Earthdata 登录，下载 ERA5-Land 装 `cdsapi`，按 CDS 官方指南配置 API 访问并接受数据条款。[Earthdata 下载说明](https://earthaccess.readthedocs.io/en/stable/user/explanation/access/) · [CDS API 配置](https://cds.climate.copernicus.eu/how-to-api)
+在流域制备环境中运行。单独安装时用 `python -m pip install '.[forcing]'`。读取本地 NOAA Zarr 时用 `python -m pip install '.[forcing,aorc]'`。
 
 ```bash
-ewhb fetch-forcing --source aorc \
+ewhb prepare-forcing --source era5-land \
+  --input "$CASE/weather/era5-land.zip" \
   --geogrid "$CASE/DOMAIN/geo_em.d01.nc" \
-  --start 2011-08-26T00:00:00Z --end 2011-08-26T03:00:00Z \
-  --output "$CASE/weather"
+  --start 2020-06-01T22:00:00Z --end 2020-06-02T02:00:00Z \
+  --output "$CASE/forcing-ready"
 ```
 
-在案例下保存 `forcing.json`。路径以 JSON 所在目录为基准。已有本地 NetCDF 时，可以直接跳到这一步。若 CDS 将即时值与累计值分到两个 NetCDF，两个文件都放进 `files` 匹配范围。
+`--input` 可传多个文件、带引号的文件匹配式（例如 `"$CASE/weather/*.nc"`）或带有集中元数据的本地 Zarr v2 目录。CDS ZIP 中的即时量和累计量 NetCDF 可一起读取，临时解包与输出使用同一磁盘。输入应为逐小时的格点资料，空间范围要覆盖整个 WPS 矩形域，边缘留至少一个源格点。若原件是 GRIB，先导出带有效时间和经纬度的逐小时 NetCDF。
+
+`--start` 和 `--end` 是模拟起止时刻。示例输出第一份为 `2020060123.LDASIN_DOMAIN1`，其中降水代表 22:00–23:00 UTC。最后一份为 `2020060202.LDASIN_DOMAIN1`。在 `namelist.hrldas` 中使用 `FORC_TYP=1`、`FORCING_TIMESTEP=3600`，把 `INDIR` 指向输出目录。也可加 `--run-dir "$CASE/run"` 在已有运行目录创建 `FORCING` 链接，并设置 `INDIR="./FORCING"`。在不能创建符号链接的文件系统上使用绝对路径。
+
+## 数据源和输入格式
+
+| `--source` | 用途和官方先例 | 传给 `--input` 的文件 |
+| --- | --- | --- |
+| `era5-land` | 泾河等陆地流域的历史回算。ERA5 驱动的高分辨率陆面重算，CDS 网格 0.1°，原生约 9 km。NCAR HRLDAS 提供同类制备流程。[ECMWF 产品说明](https://confluence.ecmwf.int/pages/viewpage.action?pageId=505384848) · [NCAR HRLDAS ERA5-Land 指南](https://github.com/NCAR/hrldas/blob/master/hrldas/docs/README.ERA5) | CDS 小时 NetCDF 或 ZIP。原始产品默认按逐日累计解算。已解累计的格点资料用 `--accumulation hourly`。[CDS 小时产品](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land) · [ARCO 解累计说明](https://confluence.ecmwf.int/pages/viewpage.action?pageId=627854124) |
+| `era5` | 全球大气再分析，包含陆面和海洋区域，CDS 单层网格 0.25°，原生大气约 31 km。可与 ERA5-Land 做同一流域的驱动对照。[CDS ERA5 单层数据](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels) | 单层再分析小时 NetCDF 或 ZIP。降水和辐射已按前一小时累计，无需差分。 |
+| `nldas2` | 北美 0.125° 小时产品，Easy VIC Build 论文的 Gasconade 案例使用同一产品。NCAR 提供 NLDAS-2 的 WRF-Hydro 重采样工具。[Easy VIC Build 论文](https://gmd.copernicus.org/articles/19/10503/2026/#section4) · [NCAR NLDAS-2 工具](https://github.com/NCAR/wrf_hydro_model_tools/tree/main/forcing/regrid/NLDAS) · [NASA FORA 文件说明](https://hydro1.gesdisc.eosdis.nasa.gov/data/NLDAS/NLDAS2_README.pdf) | NASA NLDAS-2 FORA NetCDF v2.0 文件，例如 `NLDAS_FORA0125_H.A20110826.0100.020.nc`。 |
+| `aorc` | NOAA AORC v1.1，约 1 km 小时资料，适合 Gasconade 等美国流域的历史回算，也是美国国家水文模型历史回算的驱动。[NOAA AORC 数据说明](https://registry.opendata.aws/noaa-nws-aorc/) · [NOAA 国家水文模型手册](https://www.weather.gov/media/owp/operations/Public_Handbook_V2.4_%20NWC_Visualization_Services.pdf) | 原始或裁剪后的 AORC NetCDF，也可传本地年度 Zarr v2 目录。 |
+
+ERA5 和 ERA5-Land 都需要 2 m 气温和露点、10 m 东西和南北风、地面气压、地表向下短波和长波辐射，以及总降水。风向、湿度和温度的测量高度按源资料记录，模型运行时仍应核对陆面方案的参考高度设置。NLDAS-2 和 AORC 直接提供比湿。
+
+同一流域使用不同资料时，请给每次制备指定独立的输出目录。较细的源网格能提供更多空间细节，暴雨和洪峰效果仍需用观测验证。其他常见场景包括以 HRRR 或 GFS 做预报、用 MRMS 替换降水，以及直接读取同网格的 WRF 模式输出，各有对应的时效、格式和读入要求。[NCAR Forcing Engine](https://github.com/NCAR/WrfHydroForcing) · [WRF-Hydro 驱动类型](https://wrf-hydro.readthedocs.io/en/stable/model-inputs-preproc.html#meteorological-forcing-data)
+
+## 单位与累计规则
+
+| 模型字段 | 输出单位 | 处理 |
+| --- | --- | --- |
+| `RAINRATE` | mm/s | AORC 和 NLDAS-2 的 1 kg/m² 降水等效于 1 mm，按小时累计量除以 3600。ERA5 系列以 m 水当量给出，取得小时累计后乘 1000，再除以 3600。总降水包括固态降水的水当量。 |
+| `SWDOWN`、`LWDOWN` | W/m² | AORC 和 NLDAS-2 的 W/m² 直接使用。ERA5 系列取得前一小时的 J/m² 后除以 3600。 |
+| `T2D`、`PSFC` | K、Pa | 使用气温和地面气压。自定义资料中，摄氏温度加 273.15，hPa 乘 100。 |
+| `Q2D` | kg/kg | NLDAS-2 和 AORC 使用源比湿。ERA5 系列在源网格上以 2 m 露点和地面气压按 ECMWF IFS 公式计算，再重采样。[ECMWF 比湿公式](https://confluence.ecmwf.int/pages/viewpage.action?pageId=327674988) |
+| `U2D`、`V2D` | m/s | 分别使用东西、南北风分量。 |
+
+CDS **原始 ERA5-Land** 的 00 UTC 值是前一天 24 小时累计，用它减去前一天 23 UTC 的累计值。01 UTC 是新周期的第一小时，直接使用 01 UTC 的累计量。其他时刻用相邻累计量的差。请同时提供模拟起点时刻的数据，以便第一小时需要差分时可以读到前一时刻。**标准 ERA5** 每个时刻的降水和辐射已经是截至该时刻的一小时累计。已经解累计的 ERA5-Land 也按每小时独立处理。[ERA5-Land 累计规则](https://confluence.ecmwf.int/pages/viewpage.action?pageId=505384848) · [ERA5 累计规则](https://confluence.ecmwf.int/pages/viewpage.action?pageId=85415489)
+
+ERA5 系列的极小负值会在重采样前归零，阈值为每小时 0.01 mm 降水或小时平均 0.25 W/m² 辐射。清单记录受影响的源格点时次和原单位的最小值，超过阈值则报错。缺变量、缺小时、时次重复、未知单位或覆盖不全也会停止制备。[ECMWF 对累计量打包误差的说明](https://confluence.ecmwf.int/spaces/UDOC/pages/208501579/Why%2Bare%2Bthere%2Bsometimes%2Bsmall%2Bnegative%2Bprecipitation%2Baccumulations%2B-%2BecCodes%2BGRIB%2BFAQ)
+
+默认对规则经纬度网格做双线性插值，重采样后流域总降水量可能改变。需要降水守恒重采样时，可用 NCAR ESMF 工具先重采样，再用 `custom` 导入与 WPS 经纬度匹配的结果。输出清单记录来源文件、变量名、单位、重采样方式、网格校验值和时段。[NCAR ESMF 重采样工具](https://ral.ucar.edu/dataset/earth-system-modeling-framework-esmf-regridding-scripts)
+
+## 自定义驱动和可选下载
+
+自定义 forcing 允许使用自己的格点气象资料，或将多个来源组合起来。例如用站点或雷达降水替换 ERA5-Land 降水，固定其他变量，检验不同降水驱动对洪峰的影响。先完成质控、空间插值和 UTC 时间对齐，再写配置文件。`source` 取 `custom`，在 `variables` 中逐一映射八个模型字段。例如 `"RAINRATE": {"name": "gauge_rain", "units": "mm"}` 表示输入是该时间段的毫米数。按来源选 `"time_label": "start"` 或默认的 `"end"`。
+
+Easy VIC Build 的泾河案例使用 3 小时 CMFD。原论文使用的 CMFD 版本提供风速，接入本流程前需要补齐可追溯的两个风分量，并处理 3 小时到 1 小时的时间分配，保持每 3 小时总降水量。用 ERA5-Land 驱动泾河属于新的 WRF-Hydro 实验设置。[Easy VIC Build 论文](https://gmd.copernicus.org/articles/19/10503/2026/#section4) · [CMFD 产品说明](https://data.casearth.cn/dataset/5feae826819aec33049b7c8d)
 
 ```json
 {
   "source": "aorc",
   "geogrid": "DOMAIN/geo_em.d01.nc",
   "files": ["weather/*.nc"],
-  "start": "2011-08-26T00:00:00Z",
-  "end": "2011-08-26T03:00:00Z",
-  "interval_seconds": 3600
+  "start": "2019-05-23T03:00:00Z",
+  "end": "2019-05-23T06:00:00Z"
 }
 ```
 
-```bash
-ewhb prepare-forcing --config "$CASE/forcing.json" \
-  --output "$CASE/forcing-ready" --run-dir "$CASE/run"
-```
+用 `ewhb prepare-forcing --config "$CASE/forcing.json" --output "$CASE/forcing-ready"` 读取配置，文件路径相对于 JSON 所在目录。只替换降水时，WRF-Hydro 另有在已有标准驱动之外读取单独降水文件的 `FORC_TYP=6`。[WRF-Hydro 驱动类型](https://wrf-hydro.readthedocs.io/en/stable/model-inputs-preproc.html#meteorological-forcing-data)
 
-输出清单给出实际 `FORC_TYP`、`FORCING_TIMESTEP` 和 `INDIR`。使用 `--run-dir` 时在已有运行目录创建 `FORCING` 链接，原有目录不会被覆盖。移动硬盘或 Windows 盘不允许创建链接时，可以省略 `--run-dir`，在 `namelist.hrldas` 中把 `INDIR` 指向生成目录的绝对路径。模拟从 00:00 UTC 开始时，第一份小时降水文件是 01:00，代表 00:00–01:00；结束时间对应最后一份文件。修改运行时间和时间步时，以清单和实际编译版本读入方式为准。
-
-## 单位与时间规则
-
-| 模型字段 | 输出单位 | 关键处理 |
-| --- | --- | --- |
-| `RAINRATE` | mm/s | AORC 和 NLDAS FORA 的前一小时降水以 kg/m² 给出。1 kg/m² 液态水等效于 1 mm，用每小时累积量除以 3600。ERA5-Land 原始累计量先作相邻差，再把 m 转成 mm 后除以 3600。 |
-| `SWDOWN`、`LWDOWN` | W/m² | 已是 W/m² 的数据直接使用。ERA5-Land 的 J/m² 先解累计，再除以区间秒数。 |
-| `T2D`、`PSFC` | K、Pa | 摄氏温度加 273.15，hPa 乘 100。只转换有明确定义的单位。 |
-| `Q2D` | kg/kg | 比湿直接按质量比例换算。ERA5-Land 采用 ECMWF IFS 公式，根据 2 m 露点和地面气压计算，再重采样。 |
-| `U2D`、`V2D` | m/s | 分别使用东西、南北风分量。仅有风速时要提供可追溯的风向或分量来源。 |
-
-CDS 原始 ERA5-Land 的 00 UTC 累计值对应前一天的 24 小时累计，需减去前一天 23 UTC 的值。01 UTC 是新一轮累计的首小时，直接取当时累计量。下载入口会包含差分所需的前一时刻。已经解累计的 ERA5-Land 产品可显式用 `custom` 入口，防止差分两次。时间或变量缺失、单位不明、覆盖不全或出现非法值时，转换会停止。[ERA5-Land 累计规则](https://confluence.ecmwf.int/pages/viewpage.action?pageId=239346540) · [ECMWF 比湿计算](https://confluence.ecmwf.int/pages/viewpage.action?pageId=327674988)
-
-本预览对规则经纬度网格使用双线性插值。双线性不保证降水的**空间**总量守恒。对流域总降水敏感的论文实验，可先用 NCAR ESMF 等工具生成守恒重采样的结果，再用 `custom` 传入与 WPS 网格经纬度一致的 NetCDF。转换会保留原先的网格和气象变量值。清单记录实际输入单位、输出单位、网格校验值与时段。
-
-## 自定义 forcing 是什么
-
-自定义 forcing 是用自己的气象资料或组合来驱动模型。例如用站点或雷达降水替换再分析降水，其余要素沿用 ERA5-Land，可以检验洪峰差异有多少来自降雨输入。也可用同一套气温、湿度等背景资料，比较不同降雨产品，或构造设计暴雨做敏感性实验。
-
-先把站点资料插值成网格，或准备已经格网化的 NetCDF。把各变量对齐到相同 UTC 时段和网格，明确降水是该时段的累计量还是速率，再在 JSON 中选 `"source": "custom"`，用 `variables` 映射八个模型字段。例如 `"RAINRATE": {"name": "gauge_rain", "units": "mm"}` 表示这个变量是每个输入时间段的毫米数。只有确认源数据元数据缺失或错误时才手动指定单位。支持时段开头或结尾标记，通过 `time_label` 明确选择，默认 `end`。站点 CSV 本身仍需先完成空间插值和质控。
-
-如果只替换降水，另一种官方做法是 `FORC_TYP=6`，在已有标准气象驱动外提供单独的降水文件。本预览的 `custom` 入口生成八要素小时文件，模式用 `FORC_TYP=1` 读取。[WRF-Hydro 驱动类型说明](https://wrf-hydro.readthedocs.io/en/stable/model-inputs-preproc.html#meteorological-forcing-data)
+尚未准备原件时，`ewhb fetch-forcing` 可下载 AORC 区域子集、NASA NLDAS-2 原件或 CDS ERA5-Land 原件。NASA 和 CDS 的下载命令需要按各平台配置登录，已有文件的转换无需账号。[Earthdata 访问指南](https://earthaccess.readthedocs.io/en/stable/user/explanation/access/) · [CDS API 配置](https://cds.climate.copernicus.eu/how-to-api)
