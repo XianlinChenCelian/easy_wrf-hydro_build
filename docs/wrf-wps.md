@@ -57,7 +57,7 @@ Hydro 源码已放在 `--shared-dir` 时可省略 `--hydro-archives`。已有相
 
 `build-manifest.json` 中的 `coupled_validation: linked` 表示已找到 Hydro 库，并确认 `wrf.exe` 含有 Hydro 耦合入口。运行验收另用 [NCAR Front Range 输入](https://ral.ucar.edu/projects/wrf_hydro/testcases)。用 WPS 和 `real.exe` 生成 `wrfinput_d0*` 和 `wrfbdy_d01`，并配套提供 `hydro.namelist`（`sys_cpl=2`）、Hydro 域文件及参数表。官方 Front Range 算例使用 24 类 USGS 土地覆盖，`namelist.wps`、`num_land_cat` 和参数表须与域文件一致。验证时检查同一次运行生成的大气和水文输出，以及两个模块的运行日志。独立模式的 `FORCING/` 制备流程用于独立水文运行。
 
-5.2.0 的构建会修复已由 WRF 启动 MPI 时的 Hydro 通信组初始化，并传入嵌套域尺寸。5.4.0 的构建会修复传统 Makefile 中 `fortglob.f90` 的文件名大小写，以及多进程土壤水分输出和河道网格元数据中的数组越界。修复应用于新构建目录里的源码。
+5.2.0 的构建会修复已由 WRF 启动 MPI 时的 Hydro 通信组初始化，并传入嵌套域尺寸。5.4.0 的构建会修复传统 Makefile 中 `fortglob.f90` 的文件名大小写，以及多进程土壤水分输出和河道网格元数据中的数组越界。Intel Classic 构建会给 Hydro 显式指定与 WRF 一致的 `mpiifort` 和适用的 `mpiicc`。修复应用于新构建目录里的源码。
 
 在测试用的 Apple Silicon 工具链上，WRF 4.3 写出 NetCDF4 大气历史文件时可能在关闭文件阶段崩溃。使用同一算例时，可在 `namelist.input` 的 `&time_control` 中设置 `use_netcdf_classic = .true.`，以 NetCDF classic 写出大气结果。
 

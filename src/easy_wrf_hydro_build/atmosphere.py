@@ -401,6 +401,12 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
                 macros = wrf / "hydro/macros"
                 if not macros.is_file() or not (wrf / "hydro/Makefile.comm").is_file():
                     raise ValueError("WRF did not configure the Hydro coupler; inspect WRF-configure.log.")
+                if compiler == "intel":
+                    # The legacy Intel Hydro profile uses generic wrappers, which may invoke GNU.
+                    wrappers = {"COMPILER90": mpifc}
+                    if re.search(r"(?m)^COMPILERCC[ \t]*=", macros.read_text()):
+                        wrappers["COMPILERCC"] = mpicc
+                    patch_config(macros, wrappers)
                 macro_text = macros.read_text()
                 macro_text = re.sub(r"(?m)^NETCDFLIB\s*=.*$", "NETCDFLIB = -L$(NETCDF_LIB) -lnetcdff -lnetcdf",
                                     macro_text)
