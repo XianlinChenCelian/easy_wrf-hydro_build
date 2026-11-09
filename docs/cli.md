@@ -9,6 +9,8 @@ The CLI accepts command-line arguments; it does **not** load YAML configuration 
 | --- | --- | --- |
 | `bootstrap` | Build local dependencies and WRF-Hydro | `--shared-dir`, `--prefix` |
 | `build-atmosphere` | Build the optional [WRF/WPS pair](wrf-wps.md) | `--shared-dir`, `--prefix`, `--netcdf` |
+| `fetch-geog` | Cache NCAR WPS static fields for reuse | `--cache` |
+| `prepare-domain` | Generate [offline domain inputs](domain-preparation.md) from JSON | `--config`, `--output` |
 | `doctor` | Check an existing source and library environment | `--wrf-hydro-root`, `--netcdf` |
 | `compile` | Compile an existing WRF-Hydro tree | `--wrf-hydro-root`, `--netcdf` |
 | `write-env` | Write a runtime shell script | `--wrf-hydro-root`, `--netcdf`, `--output` |

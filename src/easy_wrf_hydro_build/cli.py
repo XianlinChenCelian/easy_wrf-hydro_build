@@ -7,12 +7,15 @@ import json
 import os
 from pathlib import Path
 from subprocess import CalledProcessError, TimeoutExpired
+from tarfile import TarError
+from zipfile import BadZipFile
 
 from .archives import WRF_HYDRO_RELEASES
 from .atmosphere import build_atmosphere
 from .bootstrap import BootstrapConfig, bootstrap
 from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
+from .domain import fetch_geog, prepare_domain
 from .paths import EwhbCase
 from .workflow import compile_wrf_hydro, write_runtime_env
 
@@ -119,7 +122,40 @@ def main(argv: list[str] | None = None) -> int:
     atmosphere.add_argument("--jobs", type=int, default=4)
     atmosphere.add_argument("--dry-run", action="store_true")
 
+    domain = subparsers.add_parser(
+        "prepare-domain", help="Prepare WPS, routing and Noah-MP inputs for an offline basin (preview).",
+    )
+    domain.add_argument("--config", required=True, type=Path)
+    domain.add_argument("--output", required=True, type=Path)
+    domain.add_argument("--geogrid-only", action="store_true")
+
+    geog = subparsers.add_parser("fetch-geog", help="Cache reusable NCAR WPS static datasets.")
+    geog.add_argument("--cache", required=True, type=Path)
+    geog.add_argument("--resolution", choices=("high", "low"), default="high")
+    geog.add_argument("--archive", type=Path, help="Use a previously downloaded NCAR archive.")
+
     args = parser.parse_args(argv)
+
+    if args.command == "prepare-domain":
+        try:
+            result = prepare_domain(args.config.expanduser().resolve(),
+                                    args.output.expanduser().resolve(),
+                                    geogrid_only=args.geogrid_only)
+        except ModuleNotFoundError as exc:
+            domain.error(f"Missing {exc.name}. Run in the domain environment (see docs/domain-preparation.md).")
+        except (ValueError, OSError, KeyError, TypeError, RuntimeError, BadZipFile) as exc:
+            domain.error(str(exc))
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if args.command == "fetch-geog":
+        try:
+            result = fetch_geog(args.cache.expanduser().resolve(), args.resolution,
+                                args.archive.expanduser().resolve() if args.archive else None)
+        except (ValueError, OSError, TarError) as exc:
+            geog.error(str(exc))
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command == "build-atmosphere":
         try:

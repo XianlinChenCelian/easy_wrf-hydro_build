@@ -82,7 +82,8 @@ def unpack(archive: Path, destination: Path) -> Path:
                 stream.extract(member, destination, filter="data")
             else:
                 stream.extract(member, destination)
-    roots = list(destination.iterdir())
+    # macOS can create AppleDouble files while applying metadata on exFAT.
+    roots = [path for path in destination.iterdir() if not path.name.startswith("._")]
     if len(roots) != 1 or not roots[0].is_dir():
         raise ValueError(f"Expected one source root in {archive}")
     return roots[0]

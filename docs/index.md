@@ -14,6 +14,7 @@
 4. [可运行示例 / Examples](../examples/README.md)：Intel 和 GNU 命令脚本。
 
 - [WRF/WPS 扩展与课程路线](wrf-wps.md)：三组版本依据、可选编译与分阶段验收。
+- [离线流域制备](domain-preparation.md)：共享静态数据、网格、河网、土壤和初始场。
 
 ## 兼容性和排查 / Compatibility
 

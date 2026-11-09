@@ -1,0 +1,19 @@
+name: ewhb-domain
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - gdal
+  - libgdal-netcdf
+  - netcdf4
+  - numpy<2
+  - pyproj
+  - shapely>=2
+  - packaging
+  - whitebox=2.3.6
+  - whitebox_tools=2.4
+  - f90nml
+  - pandas<3
+  - xarray=2025.6
+  - pip

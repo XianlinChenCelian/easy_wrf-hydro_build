@@ -14,6 +14,8 @@ WRF-Hydro 安装中比较费时间的，往往是编译器、MPI 和 NetCDF 之�
 这个项目把依赖编译、模型构建、环境脚本和示例运行整理为一套可以检查、重复执行的流程。
 提供 **WRF-Hydro 5.1.2、5.2.0 和 5.4.0** 的离线构建路径，支持 Linux、WSL2 和 Linux 虚拟机，并提供 Apple Silicon 的 GNU 包。
 
+[离线流域制备预览](docs/domain-preparation.md) 用一份配置连接 WPS、开源河网工具、空间土壤参数和初始场生成，附 Easy VIC Build 论文的 Gasconade 与泾河示例。
+
 ![构建流程：准备本地源码，选择 Intel 或 GNU，编译独立依赖与 WRF-Hydro，可选运行 Croton 示例。](docs/assets/figures/build-workflow.png)
 
 *流域插画为概念示意；编译流程与验证状态见下文。[查看高清图](docs/assets/figures/build-workflow.svg)*
