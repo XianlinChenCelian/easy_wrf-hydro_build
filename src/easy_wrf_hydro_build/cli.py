@@ -16,7 +16,10 @@ from .bootstrap import BootstrapConfig, bootstrap
 from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
 from .domain import fetch_geog, prepare_domain
-from .forcing import DOWNLOAD_PRODUCTS, PRODUCTS, fetch_weather as download_weather, prepare_forcing, prepare_weather
+from .forcing import (
+    DOWNLOAD_PRODUCTS, GLDAS_WIND, PRODUCTS, fetch_weather as download_weather,
+    prepare_forcing, prepare_weather,
+)
 from .parameters import list_parameters, prepare_parameters
 from .paths import EwhbCase
 from .workflow import compile_wrf_hydro, write_runtime_env
@@ -146,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
     forcing.add_argument("--start", help="Model start time, ISO 8601 with UTC offset.")
     forcing.add_argument("--end", help="Model end time, ISO 8601 with UTC offset.")
     forcing.add_argument("--accumulation", choices=("daily", "hourly"), help="Override accumulation for ERA5-Land.")
+    forcing.add_argument("--gldas-wind", choices=(GLDAS_WIND,),
+                         help="Explicitly use U2D=wind speed and V2D=0 for GLDAS.")
     forcing.add_argument("--output", type=Path, required=True)
     forcing.add_argument("--run-dir", type=Path, help="Link a new FORCING directory into an existing run.")
 
@@ -191,7 +196,8 @@ def main(argv: list[str] | None = None) -> int:
             output = args.output.expanduser().resolve()
             if args.command == "prepare-forcing":
                 run_dir = args.run_dir.expanduser().resolve() if args.run_dir else None
-                direct = {key: getattr(args, key) for key in ("files", "geogrid", "start", "end", "accumulation")}
+                direct = {key: getattr(args, key)
+                          for key in ("files", "geogrid", "start", "end", "accumulation", "gldas_wind")}
                 if args.config:
                     if any(value is not None for value in direct.values()):
                         forcing.error("Use either --config or the direct source arguments.")

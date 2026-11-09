@@ -22,6 +22,15 @@ ERA5_FIELDS = dict(zip(UNITS, ("t2m", "d2m", "u10", "v10", "sp", "ssrd", "strd",
 AORC = dict(zip(UNITS, ("TMP_2maboveground", "SPFH_2maboveground", "UGRD_10maboveground",
                        "VGRD_10maboveground", "PRES_surface", "DSWRF_surface", "DLWRF_surface",
                        "APCP_surface")))
+GLDAS = {
+    "T2D": "Tair_f_inst", "Q2D": "Qair_f_inst", "U2D": "Wind_f_inst",
+    "PSFC": "Psurf_f_inst", "SWDOWN": "SWdown_f_tavg", "LWDOWN": "LWdown_f_tavg",
+    "RAINRATE": "Rainf_f_tavg",
+}
+GLDAS_INTERVAL = 10800
+GLDAS_WIND = "speed-as-u"
+GLDAS_FLUX_UNITS = {"RAINRATE": {"kgm-2s-1", "kg/m2/s", "mm/s", "mms-1"},
+                    "SWDOWN": {"wm-2", "w/m2"}, "LWDOWN": {"wm-2", "w/m2"}}
 AORC_STORE = "https://noaa-nws-aorc-v1-1-1km.s3.amazonaws.com/{year}.zarr"
 CDS_VARIABLES = (
     "2m_temperature", "2m_dewpoint_temperature", "10m_u_component_of_wind",
@@ -33,7 +42,7 @@ ERA5_ACCUMULATION_UNITS = {"SWDOWN": {"jm-2", "j/m2"}, "LWDOWN": {"jm-2", "j/m2"
                            "RAINRATE": {"m", "mofwaterequivalent"}}
 # Source units: 0.01 mm liquid water, or 0.25 W/m² averaged over an hour.
 ERA5_NEGATIVE_TOLERANCE = {"RAINRATE": 1e-5, "SWDOWN": 900.0, "LWDOWN": 900.0}
-PRODUCTS = {"nldas2": NLDAS, "era5": ERA5_FIELDS, "era5-land": ERA5_FIELDS, "aorc": AORC}
+PRODUCTS = {"nldas2": NLDAS, "era5": ERA5_FIELDS, "era5-land": ERA5_FIELDS, "aorc": AORC, "gldas": GLDAS}
 DOWNLOAD_PRODUCTS = ("nldas2", "era5-land", "aorc")
 COORDS = {
     "time": ("time", "valid_time", "Time"),
@@ -49,13 +58,15 @@ def _utc(value):
     return stamp.astimezone(timezone.utc).replace(tzinfo=None)
 
 
-def _period(config, hourly=False):
+def _period(config, required_seconds=None):
     start, end = _utc(config["start"]), _utc(config["end"])
-    seconds = config.get("interval_seconds", 3600)
-    if (type(seconds) is not int or seconds <= 0 or seconds % 3600
-            or (hourly and seconds != 3600)):
-        raise ValueError("Use a positive whole-hour forcing interval. This source requires 3600 s."
-                         if hourly else "Use a positive whole-hour forcing interval.")
+    seconds = config.get("interval_seconds", required_seconds or 3600)
+    if type(seconds) is not int or seconds <= 0 or seconds % 3600:
+        raise ValueError("Use a positive whole-hour forcing interval.")
+    if required_seconds is not None and seconds != required_seconds:
+        raise ValueError(f"This source requires a {required_seconds} s forcing interval.")
+    if required_seconds is not None and start.hour * 3600 % required_seconds:
+        raise ValueError(f"Use a UTC start time on the {required_seconds // 3600}-hour source grid.")
     if (start.minute or start.second or start.microsecond or end <= start
             or (end - start).total_seconds() % seconds):
         raise ValueError("Forcing start/end must be aligned to the requested whole-hour intervals.")
@@ -175,9 +186,19 @@ def _to_model_units(name, values, units, seconds):
 def _fields_for(config):
     source = config["source"]
     if source not in PRODUCTS and source != "custom":
-        raise ValueError("Forcing source must be aorc, nldas2, era5, era5-land or custom.")
+        raise ValueError(f"Forcing source must be one of {', '.join(PRODUCTS)} or custom.")
+    if source == "gldas":
+        if config.get("gldas_wind") != GLDAS_WIND:
+            raise ValueError(f"GLDAS only provides wind speed. Set --gldas-wind {GLDAS_WIND} "
+                             "to use the NCAR approximation U2D=wind speed, V2D=0.")
+        if config.get("variables"):
+            raise ValueError("Use the standard GLDAS fields with source=gldas. "
+                             "Use custom if you have independently prepared wind components.")
+    elif "gldas_wind" in config:
+        raise ValueError("gldas_wind applies only to source=gldas.")
     mapping = {**PRODUCTS.get(source, {}), **config.get("variables", {})}
-    if set(mapping) != set(UNITS):
+    expected = GLDAS if source == "gldas" else UNITS
+    if set(mapping) != set(expected):
         raise ValueError("Map all eight WRF-Hydro weather fields in variables.")
     fields = {name: ({"name": value} if isinstance(value, str) else value)
               for name, value in mapping.items()}
@@ -240,6 +261,21 @@ def _open_weather(path):
     return xr.open_dataset(path)
 
 
+def _check_gldas_time(ds, time, origin):
+    import numpy as np
+
+    bounds_name = time.attrs.get("bounds", "time_bnds")
+    if bounds_name not in ds.variables:
+        return
+    bounds = ds[bounds_name]
+    if bounds.ndim != 2 or time.dims[0] not in bounds.dims or not np.issubdtype(bounds.dtype, np.datetime64):
+        raise ValueError(f"Expected decoded GLDAS time bounds in {origin}.")
+    values = bounds.transpose(time.dims[0], ...).values
+    if (values.shape != (time.size, 2) or not np.array_equal(values[:, 1], time.values)
+            or not np.all(values[:, 1] - values[:, 0] == np.timedelta64(GLDAS_INTERVAL, "s"))):
+        raise ValueError(f"GLDAS time bounds must cover the three hours ending at the file time: {origin}")
+
+
 def _index(inputs, fields, coords, needed, model_grid, source):
     import numpy as np
 
@@ -254,6 +290,8 @@ def _index(inputs, fields, coords, needed, model_grid, source):
             co = _coordinates(ds, coords, source)
             if co["time"].ndim != 1 or not np.issubdtype(co["time"].dtype, np.datetime64):
                 raise ValueError(f"Expected a one-dimensional decoded UTC time coordinate in {origin}.")
+            if source == "gldas":
+                _check_gldas_time(ds, co["time"], origin)
             lat, lon = co["latitude"].values, co["longitude"].values
             if reference is None:
                 remap, method, window = _interpolate(lat, lon, *model_grid)
@@ -269,7 +307,7 @@ def _index(inputs, fields, coords, needed, model_grid, source):
                 if source in ERA5_PRODUCTS:
                     axes.discard("expver")
                 if axes != {time_dim, *space_dims}:
-                    raise ValueError(f"{variable.name} must use hourly time and two horizontal axes: {origin}")
+                    raise ValueError(f"{variable.name} must use time and two horizontal axes: {origin}")
                 for index, value in enumerate(co["time"].values.astype("datetime64[us]")):
                     if value not in needed[name]:
                         continue
@@ -283,7 +321,7 @@ def _index(inputs, fields, coords, needed, model_grid, source):
     return records, remap, method, window
 
 
-def _write_hour(path, stamp, fields, model_grid):
+def _write_timestep(path, stamp, fields, model_grid):
     import numpy as np
     from netCDF4 import Dataset
 
@@ -329,7 +367,8 @@ def prepare_weather(config: dict, base: Path, output: Path, run_dir: Path | None
     import numpy as np
 
     source, fields = _fields_for(config)
-    start, end, step = _period(config, hourly=source != "custom")
+    required_seconds = {"custom": None, "gldas": GLDAS_INTERVAL}.get(source, 3600)
+    start, end, step = _period(config, required_seconds)
     count = (end - start) // step
     stamps = [start + step * i for i in range(1, count + 1)]
     label = config.get("time_label", "end")
@@ -375,6 +414,9 @@ def prepare_weather(config: dict, base: Path, output: Path, run_dir: Path | None
         source_units = {name: set() for name in fields}
         source_fields = {name: set() for name in fields}
         packing_corrections = {}
+        flux_units = GLDAS_FLUX_UNITS if source == "gldas" else {}
+        if source in ERA5_PRODUCTS:
+            flux_units = ERA5_ACCUMULATION_UNITS
         for stamp in stamps:
             key = np.datetime64(stamp - offset, "us")
             arrays = {}
@@ -397,15 +439,15 @@ def prepare_weather(config: dict, base: Path, output: Path, run_dir: Path | None
                 for name in fields:
                     values, units = read_field(name, key)
                     source_units[name].add(str(units))
-                    allowed_units = ERA5_ACCUMULATION_UNITS.get(name) if source in ERA5_PRODUCTS else None
+                    allowed_units = flux_units.get(name)
                     if allowed_units and _unit_key(units) not in allowed_units:
-                        raise ValueError(f"Unexpected {source} accumulation units for {name}: {units!r}.")
+                        raise ValueError(f"Unexpected {source} units for {name}: {units!r}.")
                     if name in cumulative and stamp.hour != 1:
                         previous, previous_units = read_field(name, key - np.timedelta64(1, "h"))
                         if _unit_key(units) != _unit_key(previous_units):
                             raise ValueError(f"Units changed in the accumulation for {name} at {stamp}.")
                         values -= previous
-                    if allowed_units and (negative := values < 0).any():
+                    if source in ERA5_PRODUCTS and allowed_units and (negative := values < 0).any():
                         minimum = float(values[negative].min())
                         if minimum < -ERA5_NEGATIVE_TOLERANCE[name]:
                             raise ValueError(f"Negative hourly {name} ({minimum:g} {units}) at {stamp} UTC. "
@@ -422,6 +464,10 @@ def prepare_weather(config: dict, base: Path, output: Path, run_dir: Path | None
                 vapor_pressure = 611.21 * np.exp(17.502 * (dewpoint - 273.16) / (dewpoint - 32.19))
                 epsilon = 0.621981
                 arrays["Q2D"] = epsilon * vapor_pressure / (arrays["PSFC"] - (1 - epsilon) * vapor_pressure)
+            if source == "gldas":
+                if (arrays["U2D"] < 0).any():
+                    raise ValueError(f"Negative GLDAS wind speed at {stamp} UTC.")
+                arrays["V2D"] = np.zeros_like(arrays["U2D"])
             arrays = {name: remap(values) for name, values in arrays.items()}
             for name, values in arrays.items():
                 if not np.isfinite(values).all() or (
@@ -430,7 +476,7 @@ def prepare_weather(config: dict, base: Path, output: Path, run_dir: Path | None
                     name in {"PSFC", "T2D"} and (values <= 0).any()
                 ):
                     raise ValueError(f"Missing or physically invalid {name} at {stamp} UTC.")
-            _write_hour(staging / stamp.strftime("%Y%m%d%H.LDASIN_DOMAIN1"), stamp, arrays, model_grid)
+            _write_timestep(staging / stamp.strftime("%Y%m%d%H.LDASIN_DOMAIN1"), stamp, arrays, model_grid)
 
         manifest = {
             "source": source, "variables": fields, "files": [str(path) for path in paths],
@@ -448,6 +494,9 @@ def prepare_weather(config: dict, base: Path, output: Path, run_dir: Path | None
         if source in ERA5_PRODUCTS:
             manifest["accumulation"] = accumulation
             manifest["negative_accumulation_corrections"] = packing_corrections
+        if source == "gldas":
+            manifest["source_product"] = "GLDAS_NOAH025_3H.2.1"
+            manifest["wind_components"] = {"method": GLDAS_WIND, "U2D": "Wind_f_inst", "V2D": "constant 0 m/s"}
         (staging / "forcing-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         staging.rename(output)
     if link is not None:
@@ -468,7 +517,7 @@ def fetch_aorc(geo: Path, start: str, end: str, output: Path):
     import fsspec
     import xarray as xr
 
-    first, last, step = _period({"start": start, "end": end}, hourly=True)
+    first, last, step = _period({"start": start, "end": end}, required_seconds=3600)
     if output.exists():
         raise ValueError(f"Choose a new AORC cache directory: {output}")
     west, south, east, north = _bounds(geo, 0.03)
@@ -524,7 +573,7 @@ def _bounds(geo, margin):
 def fetch_weather(source, geo, start, end, output):
     if source == "aorc":
         return fetch_aorc(geo, start, end, output)
-    first, last, step = _period({"start": start, "end": end}, hourly=True)
+    first, last, step = _period({"start": start, "end": end}, required_seconds=3600)
     if output.exists():
         raise ValueError(f"Choose a new weather cache directory: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
