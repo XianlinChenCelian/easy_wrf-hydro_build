@@ -23,7 +23,7 @@ ewhb fetch-geog --cache "$WORK/static"
 
 ## 2. 用一份配置制备流域
 
-[示例生成器](../examples/domain/evb_cases.py) 校验 Easy VIC Build 论文的数据档案，并从中生成 Gasconade 和泾河两套配置。Gasconade 使用发布的出口流域矢量，泾河使用发布的 VIC 区域掩膜 `DomainFile/domain.nc` 和张家山原站点坐标。泾河的参考几何是已发布掩膜的网格轮廓，精细分水岭由选用的 DEM 和吸附后的出口重新划分。[原论文](https://doi.org/10.5194/gmd-19-10503-2026) · [原始案例档案](https://zenodo.org/records/21771543)
+[示例生成器](../examples/domain/evb_cases.py) 校验 Easy VIC Build 论文的数据档案，并从中生成 Gasconade 和泾河两套配置。Gasconade 使用发布的原始出口流域 Shapefile。泾河使用发布的 `DomainFile/domain.nc` 区域掩膜和张家山原站点坐标。师兄的建域代码读取 `wbw_working_directory_level0/basin_vector_outlet_with_reference_1.shp`，该文件未收录在公开案例档案。拿到原始 Shapefile 后，可通过 `--jing-boundary` 指定它。两个流域的水文分水岭均由选用的 DEM 和吸附后的出口重新划分。[原论文](https://doi.org/10.5194/gmd-19-10503-2026) · [原始案例档案](https://zenodo.org/records/21771543) · [原始建域代码](https://github.com/XudongZhengSteven/easy_vic_build/blob/d6c237a987235e6f7f41536af8e927f565806c77/examples/JRB_modeling/JRB_build_dpc.py#L465)
 
 ```bash
 python examples/domain/evb_cases.py \
@@ -40,11 +40,24 @@ ewhb prepare-domain --config "$WORK/evb-configs/jing.json" --output "$WORK/jing-
 
 - `domain` 中填写陆面间距、中心和投影，可选择给定 `e_we` 和 `e_sn`，或用 `boundary` 流域多边形加 `padding_cells` 自动计算边框。工具会检查多边形和站点能否被模型网格包住。WPS 读 `namelist.wps`，网格划分与静态数据路径都写在其 `&geogrid` 段。[WPS 手册](https://www2.mmm.ucar.edu/wrf/site/documentation/users_guide/wps.html)
 - `routing.stations` 使用 `FID,LAT,LON` 表头和 WGS84 坐标，站号按文本保存。工具检查站点是否吸附到活动河道并写入对应河段。`mask_to_stations` 为 `true` 时按站点上游汇水区限制活动河网。
-- `routing.ratio` 是陆面网格间距除以水文网格间距，取正整数。`routing.threshold_cells` 是起河的累计水文格数。阈值越大，通常提取的河网越稀。同一格数在不同分辨率下对应不同面积。`domain-manifest.json` 记录网格间距、阈值的名义面积、站点吸附距离及其名义上游面积。[NCAR 河网工具](https://github.com/NCAR/wrf_hydro_gis_preprocessor)
-- `routing.reach` 选择是否生成 `Route_Link.nc`。配置 `routing.lake_polygons` 传入包含投影的湖库多边形图层以生成 `LAKEPARM.nc`。湖库数据和运行时湖泊选项需按流域确认。两个论文样例的预览配置关闭湖库。
+- `routing.ratio` 默认 `10`，是陆面网格间距除以水文网格间距，取正整数。`routing.threshold_cells` 默认 `200`，是起河的累计水文格数。阈值越大，通常提取的河网越稀。同一格数在不同分辨率下对应不同面积。例如 12 km 的陆面网格除以 10 得到 1.2 km 的水文网格，200 格约为 288 km²。`domain-manifest.json` 会记录实际参数和阈值对应的名义面积。[NCAR 河网工具](https://github.com/NCAR/wrf_hydro_gis_preprocessor)
+- `routing.reach` 默认 `true`，生成 `Route_Link.nc`。每行对应一段河道，表中有下游河段编号、河长、坡度、底宽、糙率和站点对应关系。运行时，在 `hydro.namelist` 选择 `channel_option = 1`（Muskingum）或 `2`（Muskingum–Cunge）时才读取这张表。`channel_option = 3` 是格网扩散波汇流，使用格网输入和 `CHANPARM.TBL`。[模型输入说明](https://wrf-hydro.readthedocs.io/en/stable/model-inputs-preproc.html) · [运行选项](https://wrf-hydro.readthedocs.io/en/latest/appendices.html)
+- `routing.lakes` 默认 `false`。启用湖库时，把它改为 `true`，再将 `routing.lake_polygons` 指向用户选择的湖库多边形 `.shp`，同目录保留同名 `.shx`、`.dbf` 和 `.prj`。两项都满足时才制备 `LAKEPARM.nc`。关闭时可保留文件路径，工具会跳过湖库。两个论文案例默认关闭湖库。
 - `initialization_month` 指定初始叶面积指数的月份。脚本根据静态地理资料构造离线初始场 `wrfinput_d01.nc`。后续模拟要准备气象驱动并留出预热期。[NCAR 初始化和参数脚本](https://ral.ucar.edu/projects/wrf_hydro/pre-processing-tools)
 
 结果写入新的输出目录。可先用 `--geogrid-only` 生成网格，检查后在配置中设置 `geogrid` 指向该文件，再运行完整制备到另一个新目录。若失败，查看最近阶段的日志和 `domain-manifest.json` 中已完成的步骤。修正配置后换一个输出目录重跑，已下载的静态数据继续共用。
+
+直接修改案例 JSON 的 `routing` 段即可调整选项。下面的设置主动开启了湖库，`dem` 和 `stations` 等已有字段照常保留。
+
+```json
+{
+  "reach": true,
+  "lakes": true,
+  "lake_polygons": "data/reservoirs.shp",
+  "ratio": 10,
+  "threshold_cells": 200
+}
+```
 
 ## 3. 核对输出
 

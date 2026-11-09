@@ -12,6 +12,7 @@ from shapely.geometry import box, mapping
 from shapely.ops import unary_union
 
 from easy_wrf_hydro_build.atmosphere import ATMOSPHERE_PROFILES, sha256
+from easy_wrf_hydro_build.domain import ROUTING_DEFAULTS
 
 EVB_SHA256 = "06b1b18435814644c94b448277a9d9195288e3cbc44715277eeda29bf334c0b4"
 EVB_RECORD = "https://zenodo.org/records/21771543"
@@ -31,6 +32,9 @@ def build_configs(args):
     for item in (args.gasconade_dem, args.jing_dem):
         if not item.is_file():
             raise ValueError(f"Missing DEM: {item}")
+    if args.jing_boundary and (not args.jing_boundary.is_file()
+                               or args.jing_boundary.suffix.lower() != ".shp"):
+        raise ValueError(f"Expected the original Jing River boundary .shp: {args.jing_boundary}")
     args.output.mkdir(parents=True)
     with zipfile.ZipFile(args.archive) as archive:
         for suffix in (".shp", ".shx", ".prj", ".dbf"):
@@ -38,18 +42,24 @@ def build_configs(args):
         archived_domain = args.output / "jing-vic-domain.nc"
         archived_domain.write_bytes(archive.read(JING_DOMAIN))
 
-    with Dataset(archived_domain) as nc:
-        lat, lon = nc["lat"][:], nc["lon"][:]
-        rows, cols = np.where(nc["mask"][:] == 1)
-        dy, dx = abs(lat[1] - lat[0]) / 2, abs(lon[1] - lon[0]) / 2
-        grid = unary_union([box(lon[x] - dx, lat[y] - dy, lon[x] + dx, lat[y] + dy)
-                            for y, x in zip(rows, cols)])
-    (args.output / "jing-vic-mask.geojson").write_text(json.dumps(mapping(grid)), encoding="utf-8")
+    if args.jing_boundary:
+        jing_boundary = str(args.jing_boundary.resolve())
+        jing_boundary_kind = "user-supplied Shapefile"
+    else:
+        with Dataset(archived_domain) as nc:
+            lat, lon = nc["lat"][:], nc["lon"][:]
+            rows, cols = np.where(nc["mask"][:] == 1)
+            dy, dx = abs(lat[1] - lat[0]) / 2, abs(lon[1] - lon[0]) / 2
+            grid = unary_union([box(lon[x] - dx, lat[y] - dy, lon[x] + dx, lat[y] + dy)
+                                for y, x in zip(rows, cols)])
+        jing_boundary = "jing-vic-mask.geojson"
+        jing_boundary_kind = "published VIC mask"
+        (args.output / jing_boundary).write_text(json.dumps(mapping(grid)), encoding="utf-8")
 
     cases = {
         "gasconade": (12000, 37.85, -92.45, "gasconade.shp", args.gasconade_dem,
                       "06934000,38.38881,-91.81989", [1998, 1999], [2000, 2007], [2008, 2010]),
-        "jing": (13800, 36.0, 107.5, "jing-vic-mask.geojson", args.jing_dem,
+        "jing": (13800, 36.0, 107.5, jing_boundary, args.jing_dem,
                  "Zhangjiashan,34.63,108.60", [2008, 2009], [2010, 2015], [2016, 2018]),
     }
     for name, (cell, lat, lon, boundary, dem, station, spinup, calibration, validation) in cases.items():
@@ -65,11 +75,11 @@ def build_configs(args):
             "initialization_month": 1,
             "domain": {"cell_m": cell, "ref_lat": lat, "ref_lon": lon, "truelat1": 30,
                        "truelat2": 60, "boundary": boundary, "padding_cells": 3},
-            "routing": {"dem": str(dem.resolve()), "stations": stations, "reach": True,
-                        "ratio": 24, "threshold_cells": 100},
+            "routing": {"dem": str(dem.resolve()), "stations": stations, **ROUTING_DEFAULTS},
             "reference": {
                 "archive": EVB_RECORD, "archive_sha256": EVB_SHA256,
-                "boundary_kind": "published polygon" if name == "gasconade" else "published VIC mask",
+                "boundary_kind": "published polygon" if name == "gasconade" else jing_boundary_kind,
+                "boundary_sha256": sha256(args.output / boundary),
                 "spinup_years": spinup, "calibration_years": calibration, "validation_years": validation,
             },
         }
@@ -83,6 +93,7 @@ def main():
         parser.add_argument(f"--{option}", required=True, type=Path)
     parser.add_argument("--wrf-hydro-version", required=True, choices=ATMOSPHERE_PROFILES)
     parser.add_argument("--geog-data-res", default="default")
+    parser.add_argument("--jing-boundary", type=Path, help="Use the original Jing boundary .shp if available.")
     try:
         build_configs(parser.parse_args())
     except (OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:

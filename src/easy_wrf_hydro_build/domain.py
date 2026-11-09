@@ -25,6 +25,7 @@ GIS_SCRIPTS = (
     "Create_SoilProperties_and_Hydro2D.py", "Create_wrfinput_from_Geogrid.py",
 )
 TABLES = ("SOILPARM.TBL", "MPTABLE.TBL", "GENPARM.TBL", "HYDRO.TBL")
+ROUTING_DEFAULTS = {"reach": True, "lakes": False, "ratio": 10, "threshold_cells": 200}
 STATIC_URL = "https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_{resolution}_res_mandatory.tar.gz"
 STATIC_SHA256 = {
     "high": "89b026b9db0a03c0c995e53b4a1d99663af1f6bda21b3b34c3c2c07386da5493",
@@ -47,8 +48,17 @@ class ConfiguredWhitebox(whitebox_tools.WhiteboxTools):
                    '--run=' + whitebox_tools.to_camelcase(tool_name),
                    '--wd=' + self.work_dir, *args,
                    '-v=false', '--compress_rasters=False']
-        result = subprocess.run(command, cwd=self.exe_path, text=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        for attempt in range(1, 5):
+            result = subprocess.run(command, cwd=self.exe_path, text=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            # WhiteboxTools 2.4 can unwrap the shared grid before a worker releases it.
+            # This panic occurs before writing any output. Retry with identical inputs.
+            retry = (tool_name == 'fill_depressions' and result.returncode == 101
+                     and "Error unwrapping 'output'" in result.stdout)
+            if not retry or attempt == 4:
+                break
+            print(f'WhiteboxTools fill_depressions worker was still active; retry {attempt}/3.',
+                  flush=True)
         if result.returncode:
             raise RuntimeError(f'WhiteboxTools {tool_name} exited {result.returncode}: {result.stdout.strip()}')
         return 0
@@ -88,6 +98,24 @@ def _path(base: Path, value: str) -> Path:
 def _require(path: Path, *, directory: bool = False) -> Path:
     if not (path.is_dir() if directory else path.is_file()):
         raise ValueError(f"Missing {'directory' if directory else 'file'}: {path}")
+    return path
+
+
+def _lake_shapefile(base: Path, routing: dict) -> Path | None:
+    if not routing["lakes"]:
+        return None
+    value = routing.get("lake_polygons")
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("routing.lakes is true. Set routing.lake_polygons to the lake .shp file.")
+    path = _path(base, value)
+    if path.suffix.lower() != ".shp":
+        raise ValueError(f"routing.lake_polygons must be a Shapefile (.shp): {path}")
+    _require(path)
+    sidecars = {entry.suffix.lower() for entry in path.parent.iterdir()
+                if entry.stem == path.stem and entry.is_file()}
+    missing = {".shx", ".dbf", ".prj"} - sidecars
+    if missing:
+        raise ValueError(f"Lake Shapefile is missing {', '.join(sorted(missing))}: {path}")
     return path
 
 
@@ -454,7 +482,7 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
         return _path(base, value)
 
     boundary = _require(resolve(domain["boundary"])) if domain.get("boundary") else None
-    routing = config.get("routing", {})
+    routing = {**ROUTING_DEFAULTS, **config.get("routing", {})}
     csv_path = _require(resolve(routing["stations"])) if routing.get("stations") else None
     stations = _station_rows(csv_path) if csv_path else []
     we, sn = _grid(domain, values, boundary, stations)
@@ -489,10 +517,10 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
         if routing.get("mask_to_stations") and not csv_path:
             raise ValueError("mask_to_stations requires a station CSV.")
         dem = _require(resolve(routing["dem"]))
-        lakes = _require(resolve(routing["lake_polygons"])) if routing.get("lake_polygons") else None
-        for key in ("reach", "mask_to_stations"):
+        for key in ("reach", "lakes", "mask_to_stations"):
             if key in routing and type(routing[key]) is not bool:
                 raise ValueError(f"routing.{key} must be true or false.")
+        lakes = _lake_shapefile(base, routing)
         gis = resolve(config["ncar_gis"])
         scripts = {name: _require(gis / name) for name in GIS_SCRIPTS}
         tables = resolve(config["parameter_tables"])
@@ -502,7 +530,7 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
         for dependency in ("f90nml", "pandas", "whitebox", "osgeo", "shapely", "xarray"):
             if find_spec(dependency) is None:
                 raise ModuleNotFoundError(name=dependency)
-        if lakes and routing.get("reach", True):
+        if lakes and routing["reach"]:
             from osgeo import ogr
             if ogr.GetDriverByName("netCDF") is None:
                 raise ValueError("Install libgdal-netcdf for reach-based lake routing.")
@@ -543,7 +571,9 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
         return manifest
 
     fine_m = values["cell_m"] / ratio
-    manifest["routing_grid"] = {"spacing_m": fine_m,
+    manifest["routing_grid"] = {"ratio": ratio, "threshold_cells": threshold,
+                                "reach": routing["reach"], "lakes": routing["lakes"],
+                                "spacing_m": fine_m,
                                 "nominal_threshold_km2": threshold * fine_m ** 2 / 1e6}
     manifest["ncar_scripts_sha256"] = {name: sha256(path) for name, path in scripts.items()}
     manifest["tables_sha256"] = {name: sha256(tables / name) for name in TABLES}
@@ -557,7 +587,7 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
     cmd = [sys.executable, "-c", ROUTING_LAUNCHER, str(routing_script),
            "-i", str(geo), "-d", str(dem),
            "-R", str(ratio), "-t", str(threshold), "-o", str(archive),
-           "-r", str(routing.get("reach", True)), "-b", str(routing.get("mask_to_stations", False))]
+           "-r", str(routing["reach"]), "-b", str(routing.get("mask_to_stations", False))]
     if csv_path:
         cmd.extend(["--CSV", str(csv_path)])
     if lakes:
@@ -569,13 +599,13 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
     manifest["routing_grid"]["active_channel_cells"] = _routing_summary(domain_files / FULLDOM)
     _nc(domain_files / "GWBASINS.nc", {}, ())
     _nc(domain_files / "GWBUCKPARM.nc", {}, ())
-    if routing.get("reach", True):
+    if routing["reach"]:
         _nc(domain_files / "Route_Link.nc", {"feature_id": None}, ("link", "to"))
     if lakes:
-        manifest["lake_ids"] = _check_lakes(domain_files, routing.get("reach", True))
+        manifest["lake_ids"] = _check_lakes(domain_files, routing["reach"])
     if stations:
         manifest["station_mapping"] = _check_stations(
-            domain_files, stations, routing.get("reach", True), fine_m, values,
+            domain_files, stations, routing["reach"], fine_m, values,
         )
     shutil.copyfile(geo, domain_files / GEO)
     completed("routing")
