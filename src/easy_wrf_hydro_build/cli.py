@@ -17,6 +17,7 @@ from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
 from .domain import fetch_geog, prepare_domain
 from .forcing import DOWNLOAD_PRODUCTS, PRODUCTS, fetch_weather as download_weather, prepare_forcing, prepare_weather
+from .parameters import list_parameters, prepare_parameters
 from .paths import EwhbCase
 from .workflow import compile_wrf_hydro, write_runtime_env
 
@@ -155,7 +156,34 @@ def main(argv: list[str] | None = None) -> int:
     fetch_weather.add_argument("--end", required=True, help="Model end time, ISO 8601 with UTC offset.")
     fetch_weather.add_argument("--output", type=Path, required=True)
 
+    parameters = subparsers.add_parser(
+        "prepare-parameters", help="List or adjust NetCDF parameters for a new offline experiment.",
+    )
+    parameters.add_argument("--template", type=Path, required=True, help="Case containing DOMAIN and FORCING.")
+    parameter_mode = parameters.add_mutually_exclusive_group(required=True)
+    parameter_mode.add_argument("--list", action="store_true", help="Show available parameters and template ranges.")
+    parameter_mode.add_argument("--config", type=Path, help="JSON mapping of parameters to scale or set operations.")
+    parameters.add_argument("--output", type=Path, help="New experiment directory (required with --config).")
+
     args = parser.parse_args(argv)
+
+    if args.command == "prepare-parameters":
+        if args.list and args.output is not None:
+            parameters.error("--list only needs --template.")
+        if args.config and args.output is None:
+            parameters.error("--config requires --output.")
+        try:
+            template = args.template.expanduser().resolve()
+            if args.list:
+                result = list_parameters(template)
+            else:
+                result = prepare_parameters(template, args.config.expanduser(), args.output.expanduser())
+        except ModuleNotFoundError as exc:
+            parameters.error(f"Missing {exc.name}. Install the parameters extra (docs/parameters.md).")
+        except (ValueError, OSError, RuntimeError, OverflowError) as exc:
+            parameters.error(str(exc))
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command in {"prepare-forcing", "fetch-forcing"}:
         command = forcing if args.command == "prepare-forcing" else fetch_weather

@@ -13,6 +13,7 @@ The CLI accepts command-line arguments; it does **not** load YAML configuration 
 | `prepare-domain` | Generate [offline domain inputs](domain-preparation.md) from JSON | `--config`, `--output` |
 | `fetch-forcing` | Download [weather source files](forcing.md) for a simulation period | `--source`, `--geogrid`, `--start`, `--end`, `--output` |
 | `prepare-forcing` | Convert and link [local offline weather files](forcing.md) | `--source`, `--input`, `--geogrid`, `--start`, `--end`, `--output` (or use `--config`) |
+| `prepare-parameters` | Inspect or create [parameter experiments](parameters.md) | `--template`, `--list` or `--config` and `--output` |
 | `doctor` | Check an existing source and library environment | `--wrf-hydro-root`, `--netcdf` |
 | `compile` | Compile an existing WRF-Hydro tree | `--wrf-hydro-root`, `--netcdf` |
 | `write-env` | Write a runtime shell script | `--wrf-hydro-root`, `--netcdf`, `--output` |

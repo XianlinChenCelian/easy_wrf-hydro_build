@@ -14,6 +14,7 @@ Matching compilers, MPI wrappers and NetCDF libraries is often the time-consumin
 This tool brings dependency builds, model compilation, environment scripts and an optional example run into an inspectable, repeatable workflow.
 It targets Linux, WSL2 Ubuntu and Linux VMs, with offline releases for WRF-Hydro **5.1.2, 5.2.0 and 5.4.0**.
 [Offline forcing preparation](docs/forcing.md) converts local ERA5-Land, ERA5, NLDAS-2 or AORC data to hourly HRLDAS inputs.
+[Parameter experiments](docs/parameters.md) adjust NetCDF parameters in independent case directories with shared weather forcing.
 
 ![Build workflow: local archives, Intel or GNU toolchain, isolated dependencies, WRF-Hydro compilation and an optional Croton example.](docs/assets/figures/build-workflow.png)
 

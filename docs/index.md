@@ -16,6 +16,7 @@
 - [WRF/WPS 扩展与课程路线](wrf-wps.md)：三组版本依据、可选编译与分阶段验收。
 - [离线流域制备](domain-preparation.md)：共享静态数据、网格、河网、土壤和初始场。
 - [离线气象驱动](forcing.md)：本地原件转换、时间和格网检查及运行目录。
+- [参数试验](parameters.md)从模板调整 NetCDF 参数并共享驱动。
 
 ## 兼容性和排查 / Compatibility
 

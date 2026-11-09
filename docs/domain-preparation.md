@@ -64,3 +64,5 @@ ewhb prepare-domain --config "$WORK/evb-configs/jing.json" --output "$WORK/jing-
 检查 `DOMAIN/` 中的 `geo_em.d01.nc`、`Fulldom_hires.nc`、地下水文件、`soil_properties.nc`、`hydro2dtbl.nc`、`wrfinput_d01.nc`，以及按选项生成的河段或湖库文件。对照实际河网、流域边界和站点控制面积，确认阈值、吸附点和上游范围。配置生成器保留论文的预热、率定和验证年份，便于之后使用相同时段做评估。生成的是 WRF-Hydro 所需的新输入，论文中的 VIC 网格、土壤层和路由参数仍以原档案为准。
 
 单站点案例额外记录根据 Lambert 投影面积变形校正后的上游面积。站点或湖库关联缺失时，流程会给出错误和日志位置。若 Linux 报坐标系数据库找不到，请重新激活环境，使 `PROJ_DATA` 等环境设置生效，然后换一个输出目录重试。
+
+准备好 `DOMAIN` 和 `FORCING` 后，可以用同一模板创建多组[参数试验](parameters.md)。
