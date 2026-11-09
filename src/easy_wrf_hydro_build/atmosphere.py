@@ -1,4 +1,4 @@
-"""Optional, isolated WRF/WPS builds. Scientific coupling validation is separate."""
+"""Isolated WRF/WPS and coupled WRF | WRF-Hydro builds."""
 from __future__ import annotations
 
 import hashlib
@@ -21,7 +21,11 @@ ATMOSPHERE_PROFILES = {
 }
 
 CONFIG_TOOLS = "automake-1.17.tar.gz"
+GRIB_LIBRARIES = ("zlib-1.2.11.tar.gz", "libpng-1.2.50.tar.gz", "jasper-1.900.1.tar.gz")
 SOURCE_HASHES = {
+    "wrf_hydro_nwm_public-5.1.2.tar.gz": "203043916c94c597dd4204033715d0b2dc7907e2168cbe3dfef3cd9eef950eb7",
+    "wrf_hydro_nwm_public-5.2.0.tar.gz": "7a3c95d52e1ef5681cc4c77f2c6a080dea6fd27c0e8b7ad30e205238062d9e87",
+    "wrf_hydro_nwm_public-5.4.0.tar.gz": "bbe7e9e4a2f015426a77b22cda8d08a1bf54fc7ce4d0b35961de43dce8fef4a5",
     CONFIG_TOOLS: "397767d4db3018dd4440825b60c64258b636eaf6bf99ac8b0897f06c89310acd",
     "noahmp-848f54ad3d28c4303151fe5ad83724e232694422.tar.gz": "95977784760b53ba0a1eb31d470006ea4896937a5f5d1a3a3cc34cde9bdea363",
     "WRF-4.2.tar.gz": "c39a1464fd5c439134bbd39be632f7ce1afd9a82ad726737e37228c6a3d74706",
@@ -37,6 +41,12 @@ SOURCE_HASHES = {
 SUBMODULES = {
     "phys/noahmp": "noahmp-848f54ad3d28c4303151fe5ad83724e232694422.tar.gz",
 }
+HYDRO_LAYOUT = {"5.1.2": "trunk/NDHMS", "5.2.0": "trunk/NDHMS", "5.4.0": "src"}
+COUPLED_OPTIONS = {
+    "WRF_HYDRO": "1", "HYDRO_D": "0", "SPATIAL_SOIL": "0", "WRF_HYDRO_RAPID": "0",
+    "NCEP_WCOSS": "0", "NWM_META": "0", "WRF_HYDRO_NUDGING": "0",
+    "HYDRO_REALTIME": "0", "OUTPUT_CHAN_CONN": "0", "PRECIP_DOUBLE": "0",
+}
 
 
 def sha256(path: Path) -> str:
@@ -47,12 +57,15 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def source_names(version: str) -> list[str]:
+def source_names(version: str, *, coupled: bool = False, build_wps: bool = True) -> list[str]:
     profile = ATMOSPHERE_PROFILES[version]
-    names = [f"WRF-{profile['wrf']}.tar.gz", f"WPS-{profile['wps']}.tar.gz",
-             "zlib-1.2.11.tar.gz", "libpng-1.2.50.tar.gz", "jasper-1.900.1.tar.gz", CONFIG_TOOLS]
+    names = [f"WRF-{profile['wrf']}.tar.gz"]
+    if build_wps:
+        names.extend((f"WPS-{profile['wps']}.tar.gz", *GRIB_LIBRARIES, CONFIG_TOOLS))
     if profile["wrf"] == "4.6.1":
         names.extend(SUBMODULES.values())
+    if coupled:
+        names.append(f"wrf_hydro_nwm_public-{version}.tar.gz")
     return names
 
 
@@ -134,14 +147,72 @@ def patch_config(path: Path, values: dict[str, str]) -> None:
     path.write_text(text)
 
 
+def _patch_hydro_coupler(hydro: Path, version: str) -> None:
+    if version == "5.2.0":
+        # Hydro needs the WRF domain dimensions and its own communicator.
+        coupler = hydro / "CPL/WRF_cpl/module_wrf_HYDRO.F"
+        coupler.write_text(coupler.read_text().replace(
+            "call MPP_LAND_INIT()",
+            "call MPP_LAND_INIT(grid%e_we - grid%s_we - 1, grid%e_sn - grid%s_sn - 1)",
+            1,
+        ))
+        mpp = hydro / "MPP/mpp_land.F"
+        text = mpp.read_text().replace(
+            "    global_nx = in_global_nx\n    global_ny = in_global_ny ",
+            "    if (present(in_global_nx)) global_nx = in_global_nx\n"
+            "    if (present(in_global_ny)) global_ny = in_global_ny",
+            1,
+        ).replace(
+            '      if (ierr /= MPI_SUCCESS) call fatal_error_stop("MPI Error: MPI_INIT failed")\n'
+            "      call MPI_COMM_DUP(MPI_COMM_WORLD, HYDRO_COMM_WORLD, ierr)",
+            '      if (ierr /= MPI_SUCCESS) call fatal_error_stop("MPI Error: MPI_INIT failed")\n'
+            "    endif\n"
+            "    if (HYDRO_COMM_WORLD == MPI_COMM_NULL) then\n"
+            "      call MPI_COMM_DUP(MPI_COMM_WORLD, HYDRO_COMM_WORLD, ierr)",
+            1,
+        )
+        mpp.write_text(text)
+    elif version == "5.4.0":
+        # The legacy rule matches fortglob.f90 but passes fortglob.F90.
+        fortglob = hydro / "utils/fortglob/Makefile"
+        fortglob.write_text(fortglob.read_text().replace("$(*).F90", "$<"))
+        # Every rank passes one routing output slice per soil level.
+        routing_io = hydro / "Routing/module_NWM_io.F90"
+        io_text = routing_io.read_text().replace(
+            "allocate(globalOutComp(1,1,1))\n            allocate(globalOutReal(1,1,1))",
+            "allocate(globalOutComp(1,numLev,1))\n            allocate(globalOutReal(1,numLev,1))",
+            1,
+        )
+        # The gridded channel index is outside the model-variable loop.
+        io_text = io_text.replace(
+            "nf90_put_att(ftn,indexVarId,trim(fileMeta%crsCharAttNames(iTmp2)),trim(fileMeta%crsCharAttVals(iTmp2)))\n"
+            "            call nwmCheck(diagFlag,iret,'ERROR: Unable to place esri_pe_string attribute into '//trim(fileMeta%varNames(iTmp)))",
+            "nf90_put_att(ftn,indexVarId,trim(fileMeta%crsCharAttNames(iTmp2)),trim(fileMeta%crsCharAttVals(iTmp2)))\n"
+            "            call nwmCheck(diagFlag,iret,'ERROR: Unable to place esri_pe_string attribute into index')",
+            1,
+        )
+        routing_io.write_text(io_text)
+
+
 def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
-                     compiler: str, jobs: int = 4, dry_run: bool = False) -> dict:
+                     compiler: str, jobs: int = 4, dry_run: bool = False, *,
+                     coupled: bool = False, build_wps: bool = True,
+                     hydro_archives: Path | None = None) -> dict:
     if jobs < 1:
         raise ValueError("jobs must be positive")
     profile = ATMOSPHERE_PROFILES[version]
+    if hydro_archives is not None and not coupled:
+        raise ValueError("--hydro-archives requires --coupled.")
+    names = source_names(version, coupled=coupled, build_wps=build_wps)
+    hydro_name = f"wrf_hydro_nwm_public-{version}.tar.gz"
+    inputs = {name: (hydro_archives if name == hydro_name and hydro_archives is not None
+                     else archives) / name for name in names}
     plan = {"wrf_hydro": version, **profile, "compiler": compiler,
-            "mode": "atmosphere-only", "coupled_validation": "pending",
-            "sources": source_names(version), "prefix": str(prefix), "netcdf": str(netcdf)}
+            "mode": "coupled" if coupled else "atmosphere-only", "coupled_validation": "pending",
+            "sources": names, "prefix": str(prefix), "netcdf": str(netcdf), "wps_build": build_wps}
+    if coupled:
+        plan.update(hydro_source=str(inputs[hydro_name]), hydro_source_layout=HYDRO_LAYOUT[version],
+                    hydro_compile_options=COUPLED_OPTIONS.copy())
     if dry_run:
         return plan
     # WRF's legacy makefiles cannot reliably handle spaces in source/library paths.
@@ -177,12 +248,14 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
         if not shutil.which(tool):
             raise ValueError(f"Missing host utility {tool}. Install it through your OS package manager "
                              "or ask your cluster administrator. See the WRF/WPS installation guide.")
+    if coupled and not shutil.which("nm"):
+        raise ValueError("Missing nm, used to verify that wrf.exe contains the WRF-Hydro coupler.")
     for name in ("include/netcdf.inc", "include/netcdf.mod", "bin/nf-config"):
         if not (netcdf / name).is_file():
             raise ValueError(f"Missing {netcdf / name}; select matching NetCDF-C and NetCDF-Fortran.")
     hashes = {}
-    for name in plan["sources"]:
-        hashes[name] = sha256(archives / name)
+    for name, path in inputs.items():
+        hashes[name] = sha256(path)
         if hashes[name] != SOURCE_HASHES[name]:
             raise ValueError(f"SHA256 mismatch: {name}; obtain the exact pinned upstream source.")
     prefix.mkdir(parents=True)
@@ -195,12 +268,16 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
     env = os.environ.copy()
     # Inherit the explicitly activated toolchain, never source user login scripts.
     for key in ("WRF_CHEM", "WRF_KPP", "WRF_DA_CORE", "WRF_EM_CORE", "WRF_NMM_CORE",
-                "WRFPLUS_DIR", "WRF_OS", "WRF_MACH", "PNETCDF", "PHDF5", "HDF5"):
+                "WRFPLUS_DIR", "WRF_OS", "WRF_MACH", "PNETCDF", "PHDF5", "HDF5",
+                "JASPERLIB", "JASPERINC"):
         env.pop(key, None)
     libs = prefix / "grib2"
     env.update(CC=cc, FC=fc, F77=fc, CXX=cxx,
-               NETCDF=str(netcdf), WRF_HYDRO="0", WRF_EM_CORE="1", WRF_NMM_CORE="0",
-               JASPERLIB=str(libs / "lib"), JASPERINC=str(libs / "include"))
+               NETCDF=str(netcdf), WRF_HYDRO="0", WRF_EM_CORE="1", WRF_NMM_CORE="0")
+    if build_wps:
+        env.update(JASPERLIB=str(libs / "lib"), JASPERINC=str(libs / "include"))
+    if coupled:
+        env.update(COUPLED_OPTIONS, NETCDF_INC=str(netcdf / "include"), NETCDF_LIB=str(netcdf / "lib"))
     env["LD_LIBRARY_PATH"] = str(netcdf / "lib") + os.pathsep + env.get("LD_LIBRARY_PATH", "")
 
     def run(name, command, cwd, input_text=None, timeout=None):
@@ -222,7 +299,7 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
                                   "-o", str(prefix / "netcdf_probe"), *shlex.split(flags)], prefix)
         run("netcdf-probe-run", [str(prefix / "netcdf_probe")], prefix, timeout=30)
         modern_arm = machine in ("aarch64", "arm64") and compiler == "gnu"
-        for name in ("zlib-1.2.11.tar.gz", "libpng-1.2.50.tar.gz", "jasper-1.900.1.tar.gz"):
+        for name in GRIB_LIBRARIES if build_wps else ():
             source = unpack(archives / name, prefix / "sources" / name.removesuffix(".tar.gz"))
             options = [f"--prefix={libs}"]
             if name.startswith("zlib"):
@@ -252,16 +329,29 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
             run(name + "-configure", ["./configure", *options], source)
             run(name + "-make", ["make", "-j", str(jobs)], source)
             run(name + "-install", ["make", "install"], source)
-        for key in ("CFLAGS", "CPPFLAGS", "LDFLAGS"):
-            env.pop(key, None)
+        if build_wps:
+            for key in ("CFLAGS", "CPPFLAGS", "LDFLAGS"):
+                env.pop(key, None)
         wrf = unpack(archives / f"WRF-{profile['wrf']}.tar.gz", prefix / "WRF")
+        if coupled:
+            source = unpack(inputs[hydro_name], prefix / "hydro-source") / HYDRO_LAYOUT[version]
+            if not (source / "CPL/WRF_cpl/Makefile.cpl").is_file():
+                raise ValueError(f"Missing WRF coupling source in {inputs[hydro_name]}.")
+            hydro = wrf / "hydro"
+            shutil.rmtree(hydro)
+            source.rename(hydro)
+            _patch_hydro_coupler(hydro, version)
         if profile["wrf"] == "4.6.1":
             for relative, name in SUBMODULES.items():
                 source = unpack(archives / name, prefix / "sources" / name.removesuffix(".tar.gz"))
                 shutil.copytree(source, wrf / relative, dirs_exist_ok=True)
-        wps = unpack(archives / f"WPS-{profile['wps']}.tar.gz", prefix / "WPS")
+        wps = unpack(archives / f"WPS-{profile['wps']}.tar.gz", prefix / "WPS") if build_wps else None
         env["WRF_DIR"] = str(wrf)
         for component, source in (("WRF", wrf), ("WPS", wps)):
+            if source is None:
+                continue
+            if component == "WPS":
+                env["WRF_HYDRO"] = "0"
             configure = source / "configure"
             configure_text = configure.read_text()
             if component == "WRF" and system == "Darwin":
@@ -307,6 +397,16 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
             config = source / ("configure.wrf" if component == "WRF" else "configure.wps")
             if not config.is_file():
                 raise ValueError(f"{component} did not write {config.name}; inspect {logs / (component + '-configure.log')}.")
+            if coupled and component == "WRF":
+                macros = wrf / "hydro/macros"
+                if not macros.is_file() or not (wrf / "hydro/Makefile.comm").is_file():
+                    raise ValueError("WRF did not configure the Hydro coupler; inspect WRF-configure.log.")
+                macro_text = macros.read_text()
+                macro_text = re.sub(r"(?m)^NETCDFLIB\s*=.*$", "NETCDFLIB = -L$(NETCDF_LIB) -lnetcdff -lnetcdf",
+                                    macro_text)
+                if gnu_major >= 10:
+                    macro_text += "\nF90FLAGS += -fallow-argument-mismatch\n"
+                macros.write_text(macro_text)
             c_compat = ""
             if (gnu_major >= 14 or (compiler == "gnu" and system == "Darwin")):
                 # Legacy GRIB utilities still use C declarations accepted by older compilers.
@@ -347,7 +447,17 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
                     raise ValueError(detail)
                 if relative.endswith(".exe") and not os.access(result, os.X_OK):
                     raise ValueError(f"{result} is not executable; check filesystem permissions/noexec.")
-        plan.update(status="compiled", wrf_dir=str(wrf), wps_dir=str(wps), runtime_validation="pending")
+            if coupled and component == "WRF":
+                library = wrf / "hydro/lib/libHYDRO.a"
+                if not library.is_file() or not library.stat().st_size:
+                    raise ValueError("WRF did not build hydro/lib/libHYDRO.a; inspect WRF-compile.log.")
+                run("WRF-coupling-symbols", ["nm", "-g", str(wrf / "main/wrf.exe")], wrf)
+                symbols = (logs / "WRF-coupling-symbols.log").read_text(errors="replace")
+                if not re.search(r"(?mi)\bT\s+_?wrf_drv_hydro_+\s*$", symbols):
+                    raise ValueError("wrf.exe lacks the linked WRF-Hydro driver; inspect WRF-coupling-symbols.log.")
+                plan.update(coupled_validation="linked", hydro_library=str(library))
+        plan.update(status="compiled", wrf_dir=str(wrf), wps_dir=str(wps) if wps else None,
+                    runtime_validation="pending")
     except Exception as error:
         plan.update(status="failed", error=str(error))
         raise

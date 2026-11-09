@@ -13,7 +13,7 @@
 3. [完整构建流程 / Bootstrap](bootstrap.md)：英文构建说明、产物和重建行为。
 4. [可运行示例 / Examples](../examples/README.md)：Intel 和 GNU 命令脚本。
 
-- [WRF/WPS 扩展与课程路线](wrf-wps.md)：三组版本依据、可选编译与分阶段验收。
+- [WRF/WPS 扩展与课程路线](wrf-wps.md)涵盖三组版本、双向耦合编译与分阶段验收。
 - [离线流域制备](domain-preparation.md)：共享静态数据、网格、河网、土壤和初始场。
 - [离线气象驱动](forcing.md)：本地原件转换、时间和格网检查及运行目录。
 - [参数试验](parameters.md)从模板调整 NetCDF 参数并共享驱动。

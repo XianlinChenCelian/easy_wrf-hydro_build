@@ -115,13 +115,16 @@ def main(argv: list[str] | None = None) -> int:
     bootstrap_cmd.add_argument("--example-np", type=int, default=1)
     bootstrap_cmd.add_argument("--dry-run", action="store_true")
 
-    atmosphere = subparsers.add_parser("build-atmosphere", help="Build optional WRF and WPS in a fresh directory (preview).")
+    atmosphere = subparsers.add_parser("build-atmosphere", help="Build WRF/WPS or coupled WRF | WRF-Hydro.")
     atmosphere.add_argument("--shared-dir", required=True)
     atmosphere.add_argument("--prefix", required=True)
     atmosphere.add_argument("--netcdf", required=True)
     atmosphere.add_argument("--wrf-hydro-version", choices=WRF_HYDRO_RELEASES, required=True)
     atmosphere.add_argument("--compiler-family", choices=["gnu", "intel"], required=True)
     atmosphere.add_argument("--jobs", type=int, default=4)
+    atmosphere.add_argument("--coupled", action="store_true", help="Build WRF with the selected WRF-Hydro source.")
+    atmosphere.add_argument("--hydro-archives", type=Path, help="Reuse Hydro source archives from the offline package.")
+    atmosphere.add_argument("--skip-wps", action="store_true", help="Reuse an existing compatible WPS build.")
     atmosphere.add_argument("--dry-run", action="store_true")
 
     domain = subparsers.add_parser(
@@ -238,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
                 Path(args.shared_dir).expanduser().resolve(), Path(args.prefix).expanduser().resolve(),
                 Path(args.netcdf).expanduser().resolve(), args.wrf_hydro_version,
                 args.compiler_family, args.jobs, args.dry_run,
+                coupled=args.coupled, build_wps=not args.skip_wps,
+                hydro_archives=args.hydro_archives.expanduser().resolve() if args.hydro_archives else None,
             )
         except (ValueError, OSError, CalledProcessError, TimeoutExpired) as exc:
             atmosphere.error(str(exc))

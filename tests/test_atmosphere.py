@@ -19,6 +19,25 @@ def test_each_profile_has_complete_pinned_offline_sources(tmp_path):
     assert len(plan["sources"]) == 7  # WRF 4.6.1 requires its pinned Noah-MP submodule.
 
 
+@pytest.mark.parametrize(("version", "layout"), [
+    ("5.1.2", "trunk/NDHMS"), ("5.2.0", "trunk/NDHMS"), ("5.4.0", "src"),
+])
+def test_coupled_plan_uses_the_selected_clean_source_and_can_reuse_wps(tmp_path, version, layout):
+    archive_dir = tmp_path / "offline" / "archives"
+    prefix = tmp_path / "coupled"
+    plan = build_atmosphere(tmp_path, prefix, tmp_path / "nc", version, "gnu",
+                            dry_run=True, coupled=True, build_wps=False, hydro_archives=archive_dir)
+    name = f"wrf_hydro_nwm_public-{version}.tar.gz"
+    assert plan["mode"] == "coupled"
+    assert plan["hydro_source_layout"] == layout
+    assert plan["hydro_source"] == str(archive_dir / name)
+    assert plan["hydro_compile_options"]["WRF_HYDRO"] == "1"
+    assert name in plan["sources"]
+    assert all(len(SOURCE_HASHES[entry]) == 64 for entry in plan["sources"])
+    assert not any(entry.startswith(("WPS-", "jasper-", "zlib-")) for entry in plan["sources"])
+    assert not prefix.exists()
+
+
 def test_menu_counts_other_compilers_and_parallel_modes():
     defaults = """#ARCH Linux x86_64, PGI #serial smpar dmpar dm+sm
 #ARCH Linux x86_64, ifort compiler with icc #serial smpar dmpar dm+sm

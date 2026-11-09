@@ -1,4 +1,4 @@
-"""Build one optional WRF/WPS source add-on without duplicating Hydro/toolchains."""
+"""Build a WRF/WPS or coupled source add-on for one Hydro version."""
 import argparse
 import json
 from pathlib import Path
@@ -14,21 +14,26 @@ from easy_wrf_hydro_build.atmosphere import (  # noqa: E402
 )
 
 
-def build(version, sources, output):
-    names = source_names(version)
-    for name in names:
-        if sha256(sources / name) != SOURCE_HASHES[name]:
-            raise ValueError(f"SHA256 mismatch: {name}")
+def build(version, sources, output, *, coupled=False, hydro_archives=None):
+    if hydro_archives is not None and not coupled:
+        raise ValueError("--hydro-archives requires --coupled.")
+    names = source_names(version, coupled=coupled)
+    inputs = {name: (hydro_archives if hydro_archives is not None and name.startswith("wrf_hydro_")
+                     else sources) / name for name in names}
+    for filename, path in inputs.items():
+        if sha256(path) != SOURCE_HASHES[filename]:
+            raise ValueError(f"SHA256 mismatch: {filename}")
     output.mkdir(parents=True, exist_ok=True)
-    name = f"ewhb-hydro-{version}-wrf-wps-source-preview"
+    variant = "coupled" if coupled else "wrf-wps"
+    name = f"ewhb-hydro-{version}-{variant}-source-preview"
     artifact = output / (name + ".tar.gz")
     if artifact.exists():
         raise ValueError(f"Already exists: {artifact}; choose a new output directory")
     with tempfile.TemporaryDirectory(dir=output) as temporary:
         root = Path(temporary) / name
         (root / "archives").mkdir(parents=True)
-        for filename in names:
-            shutil.copyfile(sources / filename, root / "archives" / filename)
+        for filename, path in inputs.items():
+            shutil.copyfile(path, root / "archives" / filename)
         shutil.copytree(REPO / "src/easy_wrf_hydro_build", root / "tool/easy_wrf_hydro_build",
                         ignore=shutil.ignore_patterns("__pycache__", "._*"))
         shutil.copyfile(REPO / "docs/wrf-wps.md", root / "README.md")
@@ -41,13 +46,17 @@ if [[ $# -ne 3 ]]; then
 fi
 root=$(cd "$(dirname "$0")" && pwd)
 export PYTHONPATH="$root/tool${PYTHONPATH:+:$PYTHONPATH}"
+extra=(--jobs "${JOBS:-4}")
+if [[ ${SKIP_WPS:-0} == 1 ]]; then extra+=(--skip-wps); fi
 exec "${PYTHON:-python3}" -m easy_wrf_hydro_build.cli build-atmosphere \\
   --shared-dir "$root/archives" --prefix "$1" --netcdf "$2" \\
-  --compiler-family "$3" --wrf-hydro-version "''' + version + '''" --jobs "${JOBS:-4}"
-''')
+  --compiler-family "$3" --wrf-hydro-version "''' + version + '''" \\
+  "${extra[@]}"''' + (" --coupled" if coupled else "") + "\n"
+        )
         manifest = {"wrf_hydro": version, **ATMOSPHERE_PROFILES[version],
                     "kind": "optional-source-addon", "requires_activated_toolchain": True,
-                    "mode": "atmosphere-only", "validation": "see external validation records",
+                    "mode": "coupled" if coupled else "atmosphere-only",
+                    "validation": "see external validation records",
                     "source_sha256": {name: SOURCE_HASHES[name] for name in names}}
         (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         (root / "SHA256SUMS").write_text("".join(
@@ -68,5 +77,8 @@ if __name__ == "__main__":
     parser.add_argument("--wrf-hydro-version", choices=ATMOSPHERE_PROFILES, required=True)
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--coupled", action="store_true", help="Include pinned Hydro source for coupled WRF.")
+    parser.add_argument("--hydro-archives", type=Path, help="Optional directory containing the Hydro source archive.")
     args = parser.parse_args()
-    print(build(args.wrf_hydro_version, args.sources, args.output))
+    print(build(args.wrf_hydro_version, args.sources, args.output,
+                coupled=args.coupled, hydro_archives=args.hydro_archives))

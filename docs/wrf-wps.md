@@ -1,6 +1,6 @@
 # WRF 与 WPS 扩展
 
-本扩展对应课程中的环境安装与 WRF/WPS 编译阶段。原有三版本离线 WRF-Hydro 包仍可独立使用；WRF/WPS 作为按版本选择的附加源码包，使用相同编译器配套的 NetCDF。新增命令 `build-atmosphere` 目前构建普通 WRF-ARW 与完整 WPS，`WRF_HYDRO=0`。这一步为地理预处理、生成 wrfinput 和气象模拟准备程序，尚不构建双向耦合模型。
+本扩展覆盖 WRF/WPS 编译和双向耦合构建。原有三版本离线 WRF-Hydro 包仍可独立使用。默认的 `build-atmosphere` 构建普通 WRF-ARW 和 WPS，设置 `WRF_HYDRO=0`。加 `--coupled` 构建含 Hydro 的 WRF-ARW。两种模式都使用与编译器及 MPI 配套的 NetCDF。
 
 ## 默认组合及证据
 
@@ -12,7 +12,7 @@
 
 这些是有依据的默认测试组合，不代表其他版本均不兼容。NCAR [官方支持答复](https://forum.mmm.ucar.edu/threads/compatibility-of-wrf-wps.18370/)说明 WPS V4+ 与 WRF V4+ 通常可搭配；具体物理选项和地理字段仍需检查。发布说明中的 Hydro 更新也不能代替对独立 Hydro 标签与 WRF 内置 hydro 源码的差异检查。WRF 自带 hydro/.version 在部分标签中未同步更新，因此不能仅凭该文件判定源码版本。
 
-独立水文模式只消费输入文件，不需要安装完整 WRF 才能运行已有 Croton 算例。双向耦合需要把指定 Hydro 源码接入 WRF 并重新构建，使用耦合专用 namelist、参数表和案例验收。不能把三个独立程序的编译成功当作耦合验收。
+独立水文模式以外部气象数据驱动陆面和水文过程，生成陆面、河道等配置启用的输出。双向耦合时，WRF 为陆面和水文过程提供气象条件，水文过程改变的陆面状态可通过陆面方案影响大气。根据输出设置，同一次运行可生成大气场 `wrfout` 和河道路由结果 `CHRTOUT`。参见 [NCAR 耦合算例与输出变量说明](https://wrf-hydro.readthedocs.io/en/latest/appendices.html)。
 
 ## 使用
 
@@ -40,15 +40,37 @@ ewhb build-atmosphere \
 
 Apple Silicon 的 Fortran 源码预处理使用 GNU `cpp`。随原 GNU 环境激活时会寻找同目录的工具；自备工具链可用 `CPP` 指定 GNU `cpp` 的路径。
 
+## 双向耦合
+
+按 [NCAR 耦合构建指南](https://ral.ucar.edu/sites/default/files/docs/water/howtobuildandrunwrfhydrov511coupledtowrf.pdf)，可先分别编译和运行独立的 WRF 和 WRF-Hydro，确认工具链正常。构建耦合版时，工具将所选 Hydro 标签的原始源码接入新解压的 WRF 的 `hydro/`。5.1.2 和 5.2.0 使用 `trunk/NDHMS`，5.4.0 使用 `src`。随后设置 `WRF_HYDRO=1`，以 `dmpar` 配置执行 `compile em_real`。旧构建目录及其目标文件独立保存。
+
+```bash
+ewhb build-atmosphere --coupled \
+  --wrf-hydro-version 5.4.0 --compiler-family gnu \
+  --shared-dir /path/to/atmosphere-archives \
+  --hydro-archives /path/to/offline-package/archives \
+  --netcdf /path/to/matching/netcdf \
+  --prefix /path/to/new/coupled-build --jobs 4
+```
+
+Hydro 源码已放在 `--shared-dir` 时可省略 `--hydro-archives`。已有相容的 WPS 时，可加 `--skip-wps` 复用。耦合预览采用常规 Noah-MP 算例的编译设置，关闭空间化土壤参数和径流同化编译选项。
+
+`build-manifest.json` 中的 `coupled_validation: linked` 表示已找到 Hydro 库，并确认 `wrf.exe` 含有 Hydro 耦合入口。运行验收另用 [NCAR Front Range 输入](https://ral.ucar.edu/projects/wrf_hydro/testcases)。用 WPS 和 `real.exe` 生成 `wrfinput_d0*` 和 `wrfbdy_d01`，并配套提供 `hydro.namelist`（`sys_cpl=2`）、Hydro 域文件及参数表。官方 Front Range 算例使用 24 类 USGS 土地覆盖，`namelist.wps`、`num_land_cat` 和参数表须与域文件一致。验证时检查同一次运行生成的大气和水文输出，以及两个模块的运行日志。独立模式的 `FORCING/` 制备流程用于独立水文运行。
+
+5.2.0 的构建会修复已由 WRF 启动 MPI 时的 Hydro 通信组初始化，并传入嵌套域尺寸。5.4.0 的构建会修复传统 Makefile 中 `fortglob.f90` 的文件名大小写，以及多进程土壤水分输出和河道网格元数据中的数组越界。修复应用于新构建目录里的源码。
+
+在测试用的 Apple Silicon 工具链上，WRF 4.3 写出 NetCDF4 大气历史文件时可能在关闭文件阶段崩溃。使用同一算例时，可在 `namelist.input` 的 `&time_control` 中设置 `use_netcdf_classic = .true.`，以 NetCDF classic 写出大气结果。
+
 ## 离线材料
 
-使用 `scripts/release/build_atmosphere_bundle.py` 按单个 Hydro 版本组装附加包。它携带更新工具和源码，不包含编译器，也不重复包含原 Hydro 包。
+使用 `scripts/release/build_atmosphere_bundle.py` 按单个 Hydro 版本组装附加包。普通附加包包含 WRF、WPS 和构建工具。加 `--coupled` 可打包该版本的 Hydro 源码和耦合安装入口。两类包均复用用户已激活的编译环境。
 
-解压附加包并激活对应工具链后，在包目录执行 `JOBS=8 bash install.sh NEW_PREFIX NETCDF_PREFIX intel`，或将末尾的 `intel` 换为 `gnu`。GNU 环境的 NetCDF 通常位于原安装目录的 `environment/`；Intel 源码配方构建的库位于原安装目录的 `model/intel_libs/`。用包外的 `.sha256` 核对下载文件，并用 `sha256sum -c SHA256SUMS` 检查解包结果。
+解压附加包并激活对应工具链后，在包目录执行 `JOBS=8 bash install.sh NEW_PREFIX NETCDF_PREFIX intel`，或将末尾的 `intel` 换为 `gnu`。如复用 WPS，在命令前加 `SKIP_WPS=1`。GNU 环境的 NetCDF 通常位于原安装目录的 `environment/`，Intel 源码配方构建的库位于原安装目录的 `model/intel_libs/`。用包外的 `.sha256` 核对下载文件。检查解包结果可用 `sha256sum -c SHA256SUMS`，macOS 可用 `shasum -a 256 -c SHA256SUMS`。
 
 固定来源与校验值由 `src/easy_wrf_hydro_build/atmosphere.py` 管理。
 
 - WRF/WPS 标签源码来自 `https://codeload.github.com/wrf-model/WRF/tar.gz/refs/tags/v4.2` 等对应官方标签端点。
+- Hydro 使用 [NCAR 的版本标签源码](https://github.com/NCAR/wrf_hydro_nwm_public/tags)，校验值与相应的独立水文源码包一致。
 - WRF 4.6.1 必须补齐 Noah-MP 提交 `848f54ad3d28c4303151fe5ad83724e232694422`，来源为 NCAR/noahmp。自动生成的 WRF 标签压缩包不含子模块源码。
 - GRIB2 依赖为官方旧版教程的 zlib 1.2.11、libpng 1.2.50 和 JasPer 1.900.1，来源为 [NCAR 编译教程](https://www2.mmm.ucar.edu/wrf/OnLineTutorial/compilation_tutorial.php)的 tar_files。这里固定旧版复现基线；新库替换须另行通过 ungrib 回归测试。
 - ARM64 使用 [GNU Automake 1.17](https://ftp.gnu.org/gnu/automake/automake-1.17.tar.gz) 中的 `config.guess` 和 `config.sub` 更新旧 GRIB2 依赖的架构识别，无需安装 Automake。
@@ -57,7 +79,7 @@ Apple Silicon 的 Fortran 源码预处理使用 GNU `cpp`。随原 GNU 环境激
 
 ## 验收与课程路线
 
-三套版本在以下四种环境均生成 `wrf.exe`、`real.exe`、`geogrid.exe`、`ungrib.exe` 和 `metgrid.exe`。十二组 `ungrib` 对同一个 NOAA GFS 小型 GRIB2 样本生成了字节一致的 WPS 中间文件。
+普通 WRF/WPS 的三套版本在以下四种环境均生成 `wrf.exe`、`real.exe`、`geogrid.exe`、`ungrib.exe` 和 `metgrid.exe`。十二组 `ungrib` 对同一个 NOAA GFS 小型 GRIB2 样本生成了字节一致的 WPS 中间文件。
 
 | 环境 | 工具链 | 三版本验收 |
 | --- | --- | --- |
@@ -66,7 +88,9 @@ Apple Silicon 的 Fortran 源码预处理使用 GNU `cpp`。随原 GNU 环境激
 | Apple Silicon 原生 macOS | 原 GNU 离线包环境 | 通过原生编译和样本解码。5.1.2 先完成 WRF，再用修正后的选项重跑 WPS |
 | Ubuntu ARM64 虚拟机 | 原 GNU 离线包环境 | 通过编译、动态库检查和样本解码。5.1.2 分阶段重跑 WPS，5.2.0 在内存不足后以单进程补齐 WRF，再构建 WPS |
 
-真实 Windows WSL2 与 Intel `ifx` 的 WRF/WPS 构建需分别验收。样本只有一个时刻的 2 米气温字段，覆盖 GRIB2 解码与中间文件输出。完整的 `geogrid`、`metgrid`、`real.exe` 和双向耦合使用完整气象数据及地理输入另行验收。
+上述普通 WRF/WPS 的 GRIB2 样本包含单个时刻的 2 米气温。真实 Windows WSL2 与 Intel `ifx` 的构建需分别验收。
+
+双向耦合在 Apple Silicon GNU 环境使用 NCAR Front Range 算例另外验收。三个版本分别使用表中的 WPS，运行两层嵌套域，水文过程运行在内层域。5.1.2 使用 5.2.0 发布页提供的同一场事件输入。三组均通过 `real.exe`，用两个 MPI 进程完成 12 小时模拟，各写出 13 个时次的 `wrfout` 和 `CHRTOUT_DOMAIN2`，并核对末时次 `RTOUT_DOMAIN2` 的四层土壤含水量。重现算例需使用 [WPS 静态数据](https://www2.mmm.ucar.edu/wrf/site/geog_data.html)中的 `landuse_30s`、`usgs_30s+default` 设置和 NAM 数据对应的 `Vtable.NAM`。
 
 1. 模块一、二：版本锁定、依赖、平台编译、环境诊断和安装恢复。
 2. 模块三：建立固定地理数据清单，完成 namelist.wps → geogrid → ungrib → metgrid；验证坐标、分辨率与时间轴。
