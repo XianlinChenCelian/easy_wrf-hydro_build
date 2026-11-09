@@ -6,11 +6,6 @@ import json
 from pathlib import Path
 import zipfile
 
-from netCDF4 import Dataset
-import numpy as np
-from shapely.geometry import box, mapping
-from shapely.ops import unary_union
-
 from easy_wrf_hydro_build.atmosphere import ATMOSPHERE_PROFILES, sha256
 from easy_wrf_hydro_build.domain import ROUTING_DEFAULTS
 
@@ -21,6 +16,8 @@ GASCONADE_BOUNDARY = (
     "wbw_working_directory_level0/basin_vector_main_outlet"
 )
 JING_DOMAIN = "zenodo_upload/JRB/JRB_Zhangjiashan_1_8_deg/DomainFile/domain.nc"
+# Covers the published VIC domain and Zhangjiashan, with rounded limits.
+JING_BOUNDS = [105.9, 34.4, 109.1, 37.6]
 
 
 def build_configs(args):
@@ -46,15 +43,8 @@ def build_configs(args):
         jing_boundary = str(args.jing_boundary.resolve())
         jing_boundary_kind = "user-supplied Shapefile"
     else:
-        with Dataset(archived_domain) as nc:
-            lat, lon = nc["lat"][:], nc["lon"][:]
-            rows, cols = np.where(nc["mask"][:] == 1)
-            dy, dx = abs(lat[1] - lat[0]) / 2, abs(lon[1] - lon[0]) / 2
-            grid = unary_union([box(lon[x] - dx, lat[y] - dy, lon[x] + dx, lat[y] + dy)
-                                for y, x in zip(rows, cols)])
-        jing_boundary = "jing-vic-mask.geojson"
-        jing_boundary_kind = "published VIC mask"
-        (args.output / jing_boundary).write_text(json.dumps(mapping(grid)), encoding="utf-8")
+        jing_boundary = None
+        jing_boundary_kind = "rectangle covering the published VIC domain"
 
     cases = {
         "gasconade": (12000, 37.85, -92.45, "gasconade.shp", args.gasconade_dem,
@@ -65,6 +55,8 @@ def build_configs(args):
     for name, (cell, lat, lon, boundary, dem, station, spinup, calibration, validation) in cases.items():
         stations = f"{name}-stations.csv"
         (args.output / stations).write_text(f"FID,LAT,LON\n{station}\n", encoding="utf-8")
+        coverage = {"boundary": boundary} if boundary else {"bounds_wgs84": JING_BOUNDS}
+        reference_file = args.output / boundary if boundary else archived_domain
         config = {
             "wrf_hydro_version": args.wrf_hydro_version,
             "wps": str(args.wps.resolve()),
@@ -74,12 +66,12 @@ def build_configs(args):
             "parameter_tables": str(args.parameter_tables.resolve()),
             "initialization_month": 1,
             "domain": {"cell_m": cell, "ref_lat": lat, "ref_lon": lon, "truelat1": 30,
-                       "truelat2": 60, "boundary": boundary, "padding_cells": 3},
+                       "truelat2": 60, "padding_cells": 3, **coverage},
             "routing": {"dem": str(dem.resolve()), "stations": stations, **ROUTING_DEFAULTS},
             "reference": {
                 "archive": EVB_RECORD, "archive_sha256": EVB_SHA256,
                 "boundary_kind": "published polygon" if name == "gasconade" else jing_boundary_kind,
-                "boundary_sha256": sha256(args.output / boundary),
+                "reference_geometry_sha256": sha256(reference_file),
                 "spinup_years": spinup, "calibration_years": calibration, "validation_years": validation,
             },
         }

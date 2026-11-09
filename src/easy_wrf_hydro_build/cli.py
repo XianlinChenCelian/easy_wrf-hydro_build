@@ -16,6 +16,7 @@ from .bootstrap import BootstrapConfig, bootstrap
 from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
 from .domain import fetch_geog, prepare_domain
+from .forcing import PRODUCTS, fetch_weather as download_weather, prepare_forcing
 from .paths import EwhbCase
 from .workflow import compile_wrf_hydro, write_runtime_env
 
@@ -134,7 +135,36 @@ def main(argv: list[str] | None = None) -> int:
     geog.add_argument("--resolution", choices=("high", "low"), default="high")
     geog.add_argument("--archive", type=Path, help="Use a previously downloaded NCAR archive.")
 
+    forcing = subparsers.add_parser("prepare-forcing", help="Convert weather inputs to offline HRLDAS forcing.")
+    forcing.add_argument("--config", type=Path, required=True)
+    forcing.add_argument("--output", type=Path, required=True)
+    forcing.add_argument("--run-dir", type=Path, help="Link a new FORCING directory into an existing run.")
+
+    fetch_weather = subparsers.add_parser("fetch-forcing", help="Download domain weather data to a local cache.")
+    fetch_weather.add_argument("--source", choices=PRODUCTS, required=True)
+    fetch_weather.add_argument("--geogrid", type=Path, required=True)
+    fetch_weather.add_argument("--start", required=True, help="Model start time, ISO 8601 with UTC offset.")
+    fetch_weather.add_argument("--end", required=True, help="Model end time, ISO 8601 with UTC offset.")
+    fetch_weather.add_argument("--output", type=Path, required=True)
+
     args = parser.parse_args(argv)
+
+    if args.command in {"prepare-forcing", "fetch-forcing"}:
+        command = forcing if args.command == "prepare-forcing" else fetch_weather
+        try:
+            output = args.output.expanduser().resolve()
+            if args.command == "prepare-forcing":
+                result = prepare_forcing(args.config.expanduser().resolve(), output,
+                                         args.run_dir.expanduser().resolve() if args.run_dir else None)
+            else:
+                result = download_weather(args.source, args.geogrid.expanduser().resolve(),
+                                          args.start, args.end, output)
+        except ModuleNotFoundError as exc:
+            command.error(f"Missing {exc.name}. Activate the forcing environment (docs/forcing.md).")
+        except (ValueError, OSError, KeyError, TypeError, RuntimeError, BadZipFile) as exc:
+            command.error(str(exc))
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command == "prepare-domain":
         try:

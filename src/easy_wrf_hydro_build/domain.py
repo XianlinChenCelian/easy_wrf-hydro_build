@@ -24,7 +24,9 @@ GIS_SCRIPTS = (
     "Build_Routing_Stack.py", "wrfhydro_functions.py",
     "Create_SoilProperties_and_Hydro2D.py", "Create_wrfinput_from_Geogrid.py",
 )
-TABLES = ("SOILPARM.TBL", "MPTABLE.TBL", "GENPARM.TBL", "HYDRO.TBL")
+TABLES = ("SOILPARM.TBL", "MPTABLE.TBL", "GENPARM.TBL")
+LAND_CLASSES = {"USGS": ("USGS", "HYDRO.TBL"),
+                "MODIFIED_IGBP_MODIS_NOAH": ("MODIS", "HYDRO_MODIS.TBL")}
 ROUTING_DEFAULTS = {"reach": True, "lakes": False, "ratio": 10, "threshold_cells": 200}
 STATIC_URL = "https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_{resolution}_res_mandatory.tar.gz"
 STATIC_SHA256 = {
@@ -244,18 +246,30 @@ def _grid(domain, values, boundary, stations):
     if boundary:
         lons, lats = _boundary_coords(boundary)
         locations.extend(zip(lons, lats))
+    bounds = domain.get("bounds_wgs84")
+    if bounds is not None:
+        if (not isinstance(bounds, list) or len(bounds) != 4 or not all(
+            type(v) in (int, float) and math.isfinite(v) for v in bounds
+        )):
+            raise ValueError("bounds_wgs84 needs [west, south, east, north] in degrees.")
+        west, south, east, north = bounds
+        if not (-180 <= west < east <= 180 and -89 <= south < north <= 89):
+            raise ValueError("Invalid bounds_wgs84 or rectangle crossing the antimeridian.")
+        for i in range(33):
+            lon, lat = west + (east - west) * i / 32, south + (north - south) * i / 32
+            locations.extend(((lon, south), (lon, north), (west, lat), (east, lat)))
     x, y = projection(*zip(*locations), errcheck=True) if locations else ((), ())
     required_x = max((abs(p - x0) for p in x), default=0)
     required_y = max((abs(p - y0) for p in y), default=0)
     if "e_we" in domain or "e_sn" in domain:
         we = _number(domain.get("e_we"), "e_we", 3, 10000, integer=True)
         sn = _number(domain.get("e_sn"), "e_sn", 3, 10000, integer=True)
-    elif boundary:
+    elif boundary or bounds is not None:
         pad = _number(domain.get("padding_cells", 3), "padding_cells", 1, 1000, integer=True)
         we = max(3, math.ceil(2 * required_x / cell) + 2 * pad + 1)
         sn = max(3, math.ceil(2 * required_y / cell) + 2 * pad + 1)
     else:
-        raise ValueError("Supply a watershed boundary or both e_we and e_sn.")
+        raise ValueError("Supply bounds_wgs84, a watershed boundary, or both e_we and e_sn.")
     if required_x >= (we - 1) * cell / 2 or required_y >= (sn - 1) * cell / 2:
         raise ValueError("The grid does not contain the basin boundary and all stations. "
                          "Increase e_we/e_sn or change the domain center.")
@@ -470,6 +484,54 @@ def _check_lakes(folder, reach):
     return sorted(ids)
 
 
+def _land_tables(geo, tables):
+    import f90nml
+    from netCDF4 import Dataset
+
+    with Dataset(geo) as data:
+        label = str(getattr(data, "MMINLU", "")).strip().upper()
+    if label not in LAND_CLASSES:
+        raise ValueError(f"Unsupported geogrid MMINLU {label!r}. Use USGS or MODIFIED_IGBP_MODIS_NOAH.")
+    land_class, hydro_name = LAND_CLASSES[label]
+    hydro = _require(tables / hydro_name)
+    with hydro.open(encoding="utf-8") as stream:
+        header = stream.readline().upper().split()
+    if len(header) < 2 or header[1] != land_class:
+        raise ValueError(f"{hydro} must contain the {land_class} surface roughness table.")
+    mp = f90nml.read(str(tables / "MPTABLE.TBL"))
+    section = f"noahmp_{land_class.lower()}"
+    if (f"{section}_parameters" not in mp or str(mp.get(f"{section}_veg_categories", {}).get(
+        "veg_dataset_description", ""
+    )).strip().upper().replace(" ", "_") != label):
+        raise ValueError(f"MPTABLE.TBL has no matching vegetation table for {label}: {tables}")
+    if "STAS" not in (tables / "SOILPARM.TBL").read_text(encoding="utf-8").split():
+        raise ValueError(f"SOILPARM.TBL is missing the STAS soil texture table: {tables}")
+    return label, land_class, hydro
+
+
+def _parameter_scripts(scripts, output, land_class):
+    soil, init = (scripts[name] for name in GIS_SCRIPTS[2:])
+    soil_text = soil.read_text(encoding="utf-8")
+    init_text = init.read_text(encoding="utf-8")
+    old, new = 'landClass = "USGS"', f'landClass = "{land_class}"'
+    if soil_text.count(old) != 1:
+        raise ValueError("Unsupported NCAR soil script. Use the documented revision.")
+    soil_text = soil_text.replace(old, new)
+    old = "# Populate hydro2d file\n    print(f'Updating: {hyd2dFile}')\n    vegmap = rootgrp_geo.variables['LU_INDEX'][0]"
+    if soil_text.count(old) != 1:
+        raise ValueError("Unsupported NCAR hydro parameter script. Use the documented revision.")
+    soil_text = soil_text.replace(old, old + "\n    vegmap[vegmap == vegLake] = vegWater")
+    old = "use = ds_in['IVGTYP'].data"
+    if init_text.count(old) != 1:
+        raise ValueError("Unsupported NCAR initialization script. Use the documented revision.")
+    init_text = init_text.replace(old, "ds_in['IVGTYP'].data[ds_in['IVGTYP'].data == "
+                                      "ds_in.attrs.get('ISLAKE', -1)] = iswater\n    " + old)
+    patched_soil, patched_init = (output / path.name for path in (soil, init))
+    patched_soil.write_text(soil_text, encoding="utf-8")
+    patched_init.write_text(init_text, encoding="utf-8")
+    return patched_soil, patched_init
+
+
 def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
     config = json.loads(config_path.read_text(encoding="utf-8"))
     base = config_path.parent
@@ -570,13 +632,23 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
     if geogrid_only:
         return manifest
 
+    label, land_class, hydro_table = _land_tables(geo, tables)
+    manifest["land_cover"] = {"MMINLU": label, "scheme": land_class,
+                              "vegetation_section": f"noahmp_{land_class.lower()}_parameters",
+                              "soil_texture_section": "STAS", "hydro_table": hydro_table.name}
+    runtime_tables = output / "parameter-tables"
+    runtime_tables.mkdir()
+    for name in TABLES:
+        shutil.copyfile(tables / name, runtime_tables / name)
+    shutil.copyfile(hydro_table, runtime_tables / "HYDRO.TBL")
     fine_m = values["cell_m"] / ratio
     manifest["routing_grid"] = {"ratio": ratio, "threshold_cells": threshold,
                                 "reach": routing["reach"], "lakes": routing["lakes"],
                                 "spacing_m": fine_m,
                                 "nominal_threshold_km2": threshold * fine_m ** 2 / 1e6}
     manifest["ncar_scripts_sha256"] = {name: sha256(path) for name, path in scripts.items()}
-    manifest["tables_sha256"] = {name: sha256(tables / name) for name in TABLES}
+    manifest["tables_sha256"] = {path.name: sha256(path)
+                                 for path in [*(tables / name for name in TABLES), hydro_table]}
     manifest["dem_sha256"] = sha256(dem)
     manifest["station_ids"] = [station for station, _, _ in stations]
     domain_files = output / "DOMAIN"
@@ -609,13 +681,14 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
         )
     shutil.copyfile(geo, domain_files / GEO)
     completed("routing")
-    _run([sys.executable, str(scripts[GIS_SCRIPTS[2]]), "-i", str(geo),
+    soil_script, init_script = _parameter_scripts(scripts, routing_script.parent, land_class)
+    _run([sys.executable, str(soil_script), "-i", str(geo),
           "-p", str(tables), "-o", str(domain_files)], output, "soil")
     _nc(domain_files / "soil_properties.nc", {**dimensions, "soil_layers_stag": 4},
         ("smcmax", "smcwlt", "dksat"))
     _nc(domain_files / "hydro2dtbl.nc", dimensions, ("LKSAT", "OV_ROUGH2D"))
     completed("soil")
-    _run([sys.executable, str(scripts[GIS_SCRIPTS[3]]), "-i", str(geo),
+    _run([sys.executable, str(init_script), "-i", str(geo),
           "-m", str(month), "-o", str(domain_files / WRFINPUT)], output, "initialization")
     _nc(domain_files / WRFINPUT, {**dimensions, "soil_layers_stag": 4},
         ("SMOIS", "TSLB", "IVGTYP", "ISLTYP"))
