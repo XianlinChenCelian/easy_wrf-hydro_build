@@ -25,7 +25,7 @@ ewhb fetch-geog --cache "$WORK/static"
 
 ## 2. 用一份配置制备流域
 
-[示例生成器](../examples/domain/evb_cases.py) 校验 Easy VIC Build 论文的数据档案，并从中生成 Gasconade 和泾河两套配置。Gasconade 使用发布的原始出口流域 Shapefile。泾河默认用矩形范围 105.9–109.1°E、34.4–37.6°N，覆盖发布的 VIC 区域和张家山站。矩形为建域参考范围，WPS 会投影并加缓冲。师兄的建域代码读取 `wbw_working_directory_level0/basin_vector_outlet_with_reference_1.shp`，该文件未收录在公开案例档案。拿到原始 Shapefile 后，可通过 `--jing-boundary` 指定它。两个流域的水文分水岭均由选用的 DEM 和吸附后的出口重新划分。[原论文](https://doi.org/10.5194/gmd-19-10503-2026) · [原始案例档案](https://zenodo.org/records/21771543) · [原始建域代码](https://github.com/XudongZhengSteven/easy_vic_build/blob/d6c237a987235e6f7f41536af8e927f565806c77/examples/JRB_modeling/JRB_build_dpc.py#L465)
+[示例生成器](../examples/domain/evb_cases.py) 校验 Easy VIC Build 论文的数据档案，并从中生成 Gasconade 和泾河两套配置。Gasconade 使用发布的原始出口流域 Shapefile。泾河默认用矩形范围 105.9–109.1°E、34.4–37.6°N，覆盖发布的 VIC 区域和张家山站。矩形为建域参考范围，WPS 会投影并加缓冲。提供泾河参考流域的 Shapefile 时，可通过 `--jing-boundary` 直接指定边界。两个流域的水文分水岭均由选用的 DEM 和吸附后的出口重新划分。[原论文](https://doi.org/10.5194/gmd-19-10503-2026) · [原始案例档案](https://zenodo.org/records/21771543) · [原始建域代码](https://github.com/XudongZhengSteven/easy_vic_build/blob/d6c237a987235e6f7f41536af8e927f565806c77/examples/JRB_modeling/JRB_build_dpc.py#L465)
 
 ```bash
 python examples/domain/evb_cases.py \

@@ -1,39 +1,34 @@
-# Documentation
+# 文档 / Documentation
 
 [项目首页](../README.md) · [English overview](../README_EN.md)
 
-## 开始使用 / Get Started
+## 安装与构建 / Installation and builds
 
-先选择 [系统架构、编译器和模型版本](release-bundles.md)。个人 Intel 工具链的安装步骤见 [oneAPI 安装指南](oneapi-install.md)。
+- [快速开始 / Quick start](quickstart.md)
+- [三版本安装 / Versioned installation](versioned-install.md)
+- [系统与编译器选择 / Platforms and toolchains](release-bundles.md)
+- [WRF、WPS 与双向耦合构建 / Atmospheric and coupled builds](wrf-wps.md)
+- [源码归档与官方算例 / Upstream sources and test cases](source-archives.md)
 
-第一次使用建议按以下顺序阅读：
+## 从输入到运行 / From inputs to a run
 
-1. [快速开始](quickstart.md)：Python 环境、系统工具、编译和运行检查。
-2. [源码清单 / Source archives](source-archives.md)：版本、官方来源和示例数据。
-3. [完整构建流程 / Bootstrap](bootstrap.md)：英文构建说明、产物和重建行为。
-4. [可运行示例 / Examples](../examples/README.md)：Intel 和 GNU 命令脚本。
+- [流域制备 / Domain preparation](domain-preparation.md)
+- [离线气象驱动 / Standalone meteorological forcing](forcing.md)
+- [参数试验与分布图 / Parameter experiments and maps](parameters.md)
+- [本机图形工作台 / Local browser workbench](workbench.md)
+- [泾河与 Gasconade 耦合算例 / Coupled basin examples](coupled-basin-examples.md)
 
-- [WRF/WPS 扩展与课程路线](wrf-wps.md)涵盖三组版本、双向耦合编译与分阶段验收。
-- [GFS 双向耦合流域算例](coupled-basin-examples.md)提供两流域的数据和完整运行命令。
-- [离线流域制备](domain-preparation.md)：共享静态数据、网格、河网、土壤和初始场。
-- [本机图形工作台](workbench.md)可从 WPS 网格制备水文域，并从模板创建参数试验。
-- [离线气象驱动](forcing.md)：本地原件转换、时间和格网检查及运行目录。
-- [参数试验](parameters.md)从模板调整 NetCDF 参数并共享驱动。
+## 运行检查 / Run checks
 
-## 兼容性和排查 / Compatibility
+- [实测构建与算例 / Verified builds and cases](verified-builds.md)
+- [Linux、WSL2 与虚拟机 / Linux, WSL2, and VMs](linux-validation.md)
+- [Intel 工具链 / Intel toolchains](intel-compiler-matrix.md)
+- [安装恢复 / Installation recovery](installation-recovery.md)
+- [命令参考 / CLI reference](cli.md) · [问题排查 / Troubleshooting](troubleshooting.md)
 
-- [验证记录](verified-builds.md)：已实际运行和仅完成静态检查的组合。
-- [Intel 编译器矩阵](intel-compiler-matrix.md)：classic、oneAPI 和 ifx 的边界。
-- [故障排查](troubleshooting.md)：MPI、NetCDF 和环境路径问题。
-- [命令参考](cli.md)：`bootstrap`、`compile`、`doctor`、`write-env`、`init-case`。
+## 参与开发 / Development
 
-## 参与维护 / Development
-
-- [仓库结构](repository-layout.md)：代码、文档、示例和图片的职责。
-- [贡献指南](../CONTRIBUTING.md) 与 [隔离完整测试](isolated-testing.md)。
-- [路线图](roadmap.md)、[变更记录](../CHANGELOG.md) 和 [发布说明](github-publishing.md)。
-- [图片源文件与设计说明](assets/README.md)。
-
-## 附录 / Appendix
-
-- [空白 Windows 配置](blank-windows.md)：辅助资料；主流程从已有 Linux 环境开始。
+- [仓库结构 / Repository layout](repository-layout.md)
+- [贡献指南 / Contributing](../CONTRIBUTING.md)
+- [路线图 / Roadmap](roadmap.md) · [变更记录 / Changelog](../CHANGELOG.md)
+- [GitHub 发布 / Publishing](github-publishing.md)

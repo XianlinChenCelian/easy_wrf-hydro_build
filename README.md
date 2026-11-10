@@ -1,62 +1,14 @@
-<p align="center"><img src="docs/assets/brand/logo.png" width="104" alt="easy_wrf-hydro_build：云、降水、流域与河流"></p>
+<p align="center"><img src="docs/assets/brand/logo.png" width="104" alt="easy_wrf-hydro_build 项目标识"></p>
 
 # easy_wrf-hydro_build
 
-为已有 Linux 环境准备 WRF-Hydro 离线模型的编译与运行环境。
+用于部署 WRF-Hydro、制备流域输入和组织参数试验的开源 Python 工具包。支持独立水文模拟和 WRF 双向耦合。用户可从已有的 WPS 网格生成水文域，将气象数据转换为模型输入，并从同一模板创建使用不同参数或气象驱动的试验。
 
-[![CI](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/actions/workflows/ci.yml/badge.svg)](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-167C6B)](LICENSE)
-
-[English](README_EN.md) · [快速开始](docs/quickstart.md) · [文档目录](docs/index.md) · [验证记录](docs/verified-builds.md) · [系统与编译器选择](docs/release-bundles.md)
-
-WRF-Hydro 安装中比较费时间的，往往是编译器、MPI 和 NetCDF 之间的匹配。
-这个项目把依赖编译、模型构建、环境脚本和示例运行整理为一套可以检查、重复执行的流程。
-提供 **WRF-Hydro 5.1.2、5.2.0 和 5.4.0** 的离线构建路径，支持 Linux、WSL2 和 Linux 虚拟机，并提供 Apple Silicon 的 GNU 包。
-
-[离线流域制备预览](docs/domain-preparation.md) 用一份配置连接 WPS、开源河网工具、空间土壤参数和初始场生成，附 Easy VIC Build 论文的 Gasconade 与泾河示例。
-[离线气象驱动](docs/forcing.md) 将已下载的 ERA5-Land、NLDAS-2 或 AORC 转换成模型可读的输入文件。
-[参数试验](docs/parameters.md) 从同一模板生成独立的参数文件，并共享气象驱动。
-
-![构建流程：准备本地源码，选择 Intel 或 GNU，编译独立依赖与 WRF-Hydro，可选运行 Croton 示例。](docs/assets/figures/build-workflow.png)
-
-*流域插画为概念示意；编译流程与验证状态见下文。[查看高清图](docs/assets/figures/build-workflow.svg)*
-
-## 当前支持
-
-| 路线 | 编译器与 MPI | 验证状态 |
-| --- | --- | --- |
-| Intel classic | `ifort` / `icc` / `mpiifort` | Parallel Studio XE 2018 完成依赖编译、模型编译和 Croton NWM 单进程运行 |
-| GNU | `gcc` / `gfortran` / OpenMPI `mpif90` | 脚本与配置分支已检查，干净环境完整运行待验证 |
-| Intel oneAPI | 视安装版本而定 | 5.4.0 已在超算用 oneAPI 2021.3 `ifort` 构建并运行 Croton，`ifx` 路线为预览 |
-
-CI 检查 Python 包、脚本和文档，**不代表所有编译器都完成了模型实测**。
-具体组合见 [验证记录](docs/verified-builds.md) 和 [Intel 版本说明](docs/intel-compiler-matrix.md)。
-
-## 三版本安装（开发预览）
-
-可以显式选择 WRF-Hydro **5.1.2、5.2.0 或 5.4.0**。macOS 使用原生 GNU 路线，
-Linux、WSL2 和 Windows 上的 Linux 虚拟机在各自的 Linux 终端使用同一命令。
-先准备配套源码和工具链，详见[三版本安装指南](docs/versioned-install.md)。
-
-三个版本均有可选的 WRF/WPS 源码扩展。`ewhb build-atmosphere --coupled` 可构建双向耦合的 WRF。编译复用同一工具链的 NetCDF。版本组合、输入与验收见 [WRF/WPS 扩展](docs/wrf-wps.md)。
-
-[GFS 双向耦合流域算例](docs/coupled-basin-examples.md)随算例版附加包提供泾河和 Gasconade 的 GRIB2、区域静态瓦片及水文域文件。
-
-## 本机图形工作台
-
-在流域制备环境中运行 `ewhb ui`，可从已有 WPS 网格配置水文域，也可查看模板的参数值并创建独立率定目录。Windows 用户在 WSL2 或 Linux 虚拟机中启动。超算继续使用命令行。见[工作台使用说明](docs/workbench.md)。
+[English](README_EN.md) · [文档](docs/index.md) · [版本与平台](docs/release-bundles.md) · [工作台](docs/workbench.md) · [验证记录](docs/verified-builds.md)
 
 ## 安装
 
-在 Linux 终端中安装 Python 3.9+、Git 和 `venv`。Ubuntu 用户可以先执行：
-
-```bash
-sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip git
-```
-
-然后安装本工具：
+需要 Python 3.9 或以上版本。以下命令安装命令行工具。
 
 ```bash
 git clone https://github.com/XianlinChenCelian/easy_wrf-hydro_build.git
@@ -67,64 +19,35 @@ python -m pip install .
 ewhb --help
 ```
 
-系统编译工具和 MPI 按路线准备，见 [快速开始](docs/quickstart.md)。Intel 路线可使用站点工具链，也可用 [oneAPI 安装指南](docs/oneapi-install.md) 安装个人工具链。
+在已有流域制备环境中，可直接从仓库安装。参数试验、绘图与气象转换的 Python 依赖可通过 `python -m pip install '.[parameters,forcing]'` 安装。流域制备所需的 GDAL、WhiteboxTools 和 NCAR GIS 脚本见[环境准备](docs/domain-preparation.md)。
 
-## 使用
+## 建模流程
 
-先将 WRF-Hydro、zlib、HDF5、NetCDF-C 和 NetCDF-Fortran 源码包放在同一目录。
-[源码清单](docs/source-archives.md) 列出了基线版本、官方获取入口和可选的 Croton 示例数据。
+| 步骤 | 输入与产物 | 使用入口 |
+| --- | --- | --- |
+| 编译模型 | 按版本配置编译器、MPI 和 NetCDF，生成 WRF-Hydro 或耦合 WRF 可执行文件 | [版本安装](docs/versioned-install.md) · [WRF/WPS](docs/wrf-wps.md) |
+| 制备水文域 | 用 WPS 网格、DEM 和可选站点生成路由网格、土壤参数和初始场。可指定细化比例、起河阈值和湖库多边形 | [流域制备](docs/domain-preparation.md) |
+| 准备离线驱动 | 将 ERA5-Land、NLDAS-2、AORC 或自定义数据对齐到陆面网格，按来源处理单位和时间，写出 HRLDAS 驱动 | [气象驱动](docs/forcing.md) |
+| 创建参数试验 | 从模板复制 `DOMAIN`，缩放或设定 NetCDF 参数，链接所选的 `FORCING`，并保存参数分布图 | [参数试验](docs/parameters.md) |
+| 运行耦合算例 | 用包含高空和地面字段的 GFS 驱动 WPS，经 `real.exe` 初始化，由耦合 `wrf.exe` 输出大气与水文结果 | [耦合算例](docs/coupled-basin-examples.md) |
 
-**Intel**，将 `--intel-home` 改为实际的编译器安装目录：
+`ewhb ui` 打开本机浏览器工作台。流域制备页从 `geo_em.d01.nc` 读取陆面网格，显示细化后的水文间距和名义起河面积。参数率定页显示模板的参数值和单位，可为每组试验指定新目录和已制备的驱动，并浏览生成的 PNG 图。超算批处理可使用相同流程的[命令行入口](docs/cli.md)。
 
-```bash
-ewhb bootstrap --compiler-family intel \
-  --shared-dir ~/wrf-hydro-packages \
-  --prefix ~/wrfhydro-intel \
-  --intel-home ~/intel/parallel_studio_xe_2018 \
-  --jobs 4
-source ~/wrfhydro-intel/wrf_hydro_intel_env.sh
-```
+## 版本与工具链
 
-**GNU**，使用系统安装的 GCC、GFortran 和 OpenMPI：
+| WRF-Hydro | 配套 WRF | 配套 WPS |
+| --- | --- | --- |
+| 5.1.2 | 4.2 | 4.2 |
+| 5.2.0 | 4.3 | 4.3 |
+| 5.4.0 | 4.6.1 | 4.6.0 |
 
-```bash
-ewhb bootstrap --compiler-family gnu \
-  --shared-dir ~/wrf-hydro-packages \
-  --prefix ~/wrfhydro-gnu \
-  --jobs 4
-source ~/wrfhydro-gnu/wrf_hydro_gnu_env.sh
-```
+Apple Silicon macOS 与 Linux ARM64 使用 GNU。x86_64 Linux 可选择 GNU 或 Intel Classic，超算可调用站点提供的编译器和 MPI。Windows 上在 WSL2 或 Linux 虚拟机中使用对应的 Linux 构建路线。依赖版本及安装方式见[平台矩阵](docs/release-bundles.md)和 [Intel 工具链说明](docs/intel-compiler-matrix.md)。
 
-加入 `--dry-run` 可先生成脚本而不执行编译；准备好匹配版本的示例数据后，加入 `--run-example` 可运行 Croton NWM 示例。
-不同路线或版本应使用**不同的 `--prefix`**，避免重用旧源码、日志和完成标记。
+## 流域示例与运行验证
 
-## 文档
+- **Croton** 是 NCAR 提供的独立水文算例。三个模型版本均在 Apple Silicon macOS 和 Ubuntu ARM64 虚拟机完成 Croton 运行，每次生成 168 个逐小时站点输出。原生 x86_64 Linux 超算上的 Intel Classic 构建也完成了这三个版本的 Croton 运行。[验证记录](docs/verified-builds.md)
+- **Gasconade 与泾河**沿用 Easy VIC Build 论文的两个研究区域。使用区域 GFS 驱动和匹配的水文域，三个版本在 Apple Silicon GNU 环境分别完成了两流域的 12 小时耦合流程，生成大气、河段和站点输出。[耦合算例](docs/coupled-basin-examples.md) · [Easy VIC Build 论文](https://doi.org/10.5194/gmd-19-10503-2026)
 
-| 你要做什么 | 入口 |
-| --- | --- |
-| 第一次从零编译 | [快速开始](docs/quickstart.md) |
-| 准备依赖源码和示例数据 | [源码清单](docs/source-archives.md) |
-| 查看完整构建流程和产物 | [构建说明](docs/bootstrap.md) |
-| 使用现有 NetCDF / 调整编译选项 | [命令参考](docs/cli.md) |
-| 直接运行一份命令示例 | [examples](examples/README.md) |
-| 排查错误或验证新电脑 | [故障排查](docs/troubleshooting.md) · [隔离测试](docs/isolated-testing.md) |
-| 了解代码放在哪里 | [仓库结构](docs/repository-layout.md) |
+## 引用与贡献
 
-## 项目范围
-
-本项目构建 WRF-Hydro 离线 NoahMP / Noah 可执行文件，生成运行环境脚本，可选运行官方示例。
-WRF/WPS 编译、流域预处理和耦合算例作为可选扩展。按所选编译器准备工具链，按使用场景选择对应的源码或算例包。
-
-## 参与和引用
-
-欢迎通过 [Issues](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/issues) 提交错误或真实编译记录。
-代码贡献见 [CONTRIBUTING.md](CONTRIBUTING.md)，后续计划见 [Roadmap](docs/roadmap.md)，版本变更见 [CHANGELOG.md](CHANGELOG.md)。
-
-项目使用 [MIT License](LICENSE)。科研引用信息见 [CITATION.cff](CITATION.cff)；WRF-Hydro 和各依赖请分别遵循其许可证与引用要求。
-页面组织参考了 [easy_vic_build](https://github.com/XudongZhengSteven/easy_vic_build) 和 [HydroMT](https://github.com/Deltares/hydromt)，本项目由作者独立维护。
-
-**Author**: XianlinChen · **Email**: [chenxl@sehemodel.club](mailto:chenxl@sehemodel.club)
-
-## 选择系统、编译器和版本
-
-发布目录按系统架构、编译器、WRF-Hydro 版本组织。GNU 离线包包含锁定的二进制依赖，Intel 源码配方提供个人 oneAPI 安装入口和依赖源包。5.1.2、5.2.0、5.4.0 都可独立选择。超算 Intel 用户可直接使用已加载的站点模块，个人 Linux／WSL2 用户可安装到个人目录。入口见 [版本安装包](docs/release-bundles.md) 和 [Intel 编译器矩阵](docs/intel-compiler-matrix.md)。
+在研究或教学中使用本工具时，请通过 [CITATION.cff](CITATION.cff) 引用软件版本。流域与数据来源见[制备说明](docs/domain-preparation.md)。问题和可复现的运行记录可提交到 [GitHub Issues](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/issues)。代码采用 [MIT 许可证](LICENSE)，贡献流程见[贡献指南](CONTRIBUTING.md)。

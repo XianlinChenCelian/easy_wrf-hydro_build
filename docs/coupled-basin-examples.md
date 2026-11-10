@@ -1,22 +1,25 @@
 # GFS 双向耦合流域算例
 
-按 WRF-Hydro 版本选择一个耦合算例包。每个包均提供泾河和 Gasconade 的 GFS GRIB2、区域 WPS 静态瓦片、版本匹配的水文路由输入与运行入口。泾河沿用张家山站和已确认的矩形建域范围，Gasconade 沿用论文公开的出口流域边界。两个算例使用 MODIS 地类、10 倍水文网格细化和 200 格起河阈值，并启用 Muskingum–Cunge 河段路由。数据时间为 2026-11-08 00 至 12 UTC，供 12 小时流程复现。
+耦合算例采用泾河与 Gasconade 的区域 GFS GRIB2、WPS 静态瓦片和版本匹配的水文路由输入。可按下文的数据来源与构建说明准备所选版本的算例。泾河沿用张家山站和已确认的矩形建域范围，Gasconade 沿用论文公开的出口流域边界。两个算例使用 MODIS 地类、10 倍水文网格细化和 200 格起河阈值，并启用 Muskingum–Cunge 河段路由。数据时间为 2026-11-08 00 至 12 UTC，供 12 小时流程复现。
 
-## 解压后运行
+## 准备和运行
 
-激活与编译一致的 GNU 或 Intel Classic 环境，并在包目录执行以下命令。已有同版本的耦合安装时可直接使用它的构建目录。
+按 [WRF/WPS 构建指南](wrf-wps.md) 编译对应版本的耦合程序，按[流域制备](domain-preparation.md)准备两个使用 MODIS 的域。把两个域制备结果放在 `$WORK/domains/jing` 和 `$WORK/domains/gasconade`，把区域 GRIB2 放在 `$WORK/gfs` 下的对应子目录。
 
 ```bash
-bash install.sh "$WORK/coupled-build" "$NETCDF_PREFIX" gnu
-bash run-case.sh jing --build "$WORK/coupled-build" --output "$WORK/jing-run"
-bash run-case.sh gasconade --build "$WORK/coupled-build" --output "$WORK/gasconade-run"
+python3 scripts/release/assemble_basin_cases.py --wrf-hydro-version 5.1.2 \
+  --domains "$WORK/domains" --forcing "$WORK/gfs" --output "$WORK/cases"
+ewhb run-basin --case "$WORK/cases/jing" --build "$WORK/coupled-build" \
+  --geog-data "$WPS_GEOG" --output "$WORK/jing-run"
+ewhb run-basin --case "$WORK/cases/gasconade" --build "$WORK/coupled-build" \
+  --geog-data "$WPS_GEOG" --output "$WORK/gasconade-run"
 ```
 
-如果构建时使用了 `SKIP_WPS=1`，在运行命令加 `--wps "$WPS_DIR"` 指向已经安装的配套 WPS。程序默认使用一个 MPI 进程。Windows 用户应在 WSL2 或 Linux 虚拟机的 Linux 文件系统内创建输出目录。macOS 移动硬盘可使用支持符号链接的 APFS 卷。失败日志保留在指定目录，重试时选择一个新的 `--output`。
+运行使用与编译一致的 GNU 或 Intel Classic 环境，默认一个 MPI 进程。独立安装的 WPS 可用 `--wps "$WPS_DIR"` 指定。可用 `scripts/release/build_atmosphere_bundle.py --coupled --cases` 将已准备的流域输入和源码组包。组包时用 `--case-geog` 加入区域静态瓦片后，包内的 `run-case.sh` 可直接使用这些瓦片。
 
 流程会执行 `geogrid.exe → ungrib.exe → metgrid.exe → real.exe → wrf.exe`。输出目录中的 `wps/` 保留 `geo_em.d01.nc` 和三个 `met_em` 时次。`run/` 保留初始场、边界文件、每小时大气输出、河道流量、站点流量和地形路由输出。结束时间和输出文件见 `run-manifest.json`。包内的 `static/WPS_GEOG` 覆盖这两个固定域，自建流域可通过 `--geog-data` 指定完整版 NCAR 缓存。
 
-Apple Silicon GNU 环境已用三个 WRF-Hydro 版本分别完成两流域的 12 小时算例。5.2.0 和 5.4.0 的耦合构建修复了河段输出读取 `Route_Link.nc` 的初始化问题。超算和 Windows WSL2 需要分别验收这两套流域数据。
+三个 WRF-Hydro 版本均在 Apple Silicon GNU 环境以单 MPI 进程完成两流域的 12 小时冷启动。5.2.0 和 5.4.0 的构建包含耦合模式读取 `Route_Link.nc` 的修正。
 
 ## 数据与来源
 

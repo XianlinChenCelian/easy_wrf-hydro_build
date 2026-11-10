@@ -1,6 +1,8 @@
 # Linux 安装与验证
 
-Linux、WSL2 和 Linux 虚拟机使用按处理器架构区分的同一安装包。当前有 `linux-aarch64` 和 `linux-x86_64` 预览包。x86_64 三版本已在 QEMU 用户态模拟中完成离线安装与 Croton 验证；Windows WSL2 实机仍未验证。Apple Silicon Mac 内的 ARM64 Linux 测试不能代替 x86_64 测试。
+Linux、WSL2 和 Linux 虚拟机按来宾系统的 CPU 架构选择构建路线。Ubuntu 24.04 ARM64 虚拟机与 QEMU 中的 x86_64 用户态均完成三个版本的离线安装和 Croton 运行。原生 x86_64 超算构建另见[验证记录](verified-builds.md)。
+
+可以按[版本安装指南](versioned-install.md)从源码构建，或先[组装 GNU 离线包](release-bundles.md#gnu-离线包)再使用下文的安装器。
 
 ## 安装边界
 
@@ -20,16 +22,12 @@ python3 install.py /absolute/path/to/new-install --run-example --jobs 4
 
 ## 存储布局
 
-开发机器的移动硬盘为 exFAT。虚拟机文件存放在移动硬盘上的 APFS 稀疏映像内，Linux 系统和编译目录则使用映像中的 ext4 虚拟磁盘。这样保留 Unix 权限、链接和编译性能所需的文件系统语义，不改动外置盘现有分区。
-
-映像上限 48 GiB，Linux 系统盘虚拟容量 40 GiB，实际按需分配；虚拟机使用 4 核 CPU、4 GiB 内存。Linux 环境、依赖缓存、构建输出和安装包都在移动硬盘。完成验证后停止虚拟机以释放运行内存。
-
-移动硬盘的 `linux-host/linux.sh` 提供 `start`、`shell`、`stop`、`eject`、`status` 操作。拔盘前使用 `eject` 停止虚拟机并卸载映像，然后从 macOS 弹出物理硬盘。
+虚拟机的系统和构建目录可保存在外置磁盘上的虚拟磁盘内。来宾系统使用 ext4 等支持 Unix 权限和符号链接的文件系统。Windows 用户可从共享盘读取归档，把构建输出放在 WSL2 的 Linux 家目录中。
 
 ## 验证范围
 
-每个版本先验证源码编译与匹配 Croton 算例，再从各自独立的离线包恢复环境并重新编译运行。验收检查成功结束标记、168 个逐小时观测站输出、最终时刻 2011-09-02 00:00，以及最终 NetCDF 文件中的 `streamflow`。这属于安装和运行验证，不能替代水文精度评价。
+每个版本先验证源码编译与匹配 Croton 算例，再从各自独立的离线包恢复环境并重新编译运行。验收检查成功结束标记、168 个逐小时观测站输出、最终时刻 2011-09-02 00:00，以及最终 NetCDF 文件中的 `streamflow`。这些指标用来核对环境安装、模型启动、模拟时段与输出可读性。
 
-具体完成记录见[已验证构建](verified-builds.md)。同一套 Linux 包对 WSL2 和其他虚拟机的兼容性有共同基础，但发行版、架构和 MPI 进程通信仍需匹配；未实测的平台不标为已验证。
+具体完成记录见[已验证构建](verified-builds.md)。该记录按发行版、处理器架构和 MPI 环境标注实测范围。
 
 参考：[Lima 虚拟机后端](https://lima-vm.io/docs/config/vmtype/)、[Microsoft 对 WSL1/WSL2 的比较](https://learn.microsoft.com/en-us/windows/wsl/compare-versions)。

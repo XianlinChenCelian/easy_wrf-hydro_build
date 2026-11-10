@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "easy-wrf-hydro-build"
 version = "0.1.0"
-description = "Reproducible WRF-Hydro dependency and compile helper for existing Linux environments."
+description = "Python toolkit for WRF-Hydro builds, basin inputs, and reproducible parameter experiments."
 authors = [
     { name = "XianlinChen", email = "chenxl@sehemodel.club" }
 ]

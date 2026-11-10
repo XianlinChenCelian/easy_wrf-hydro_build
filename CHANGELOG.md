@@ -4,17 +4,18 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
-### Documentation and Packaging
+### Added
 
-- Redesign the workflow figure, logo and social preview; group assets and editable layouts.
-- Add quickstart, archive inventory, CLI reference and repository layout guides.
-- Replace the non-executable YAML example with Intel classic and GNU CLI scripts.
-- Use virtual environments in installation instructions and distinct build prefixes.
-- Make compiler validation limits visible in both README languages.
-- Add documentation-link checks, distribution builds and wheel smoke tests to CI.
-- Use SPDX license metadata and a matching setuptools minimum.
+- Versioned WRF-Hydro 5.1.2, 5.2.0, and 5.4.0 builds with matching WRF/WPS combinations.
+- WPS-based hydrologic domain preparation with configurable routing resolution, stream thresholds, and lake polygons.
+- HRLDAS forcing conversion for ERA5-Land, NLDAS-2, AORC, and custom inputs.
+- Standalone parameter experiments with shared forcing, PNG maps, and a local browser workbench.
+- Coupled Gasconade and Jing River examples with GFS forcing and run manifests.
 
-No new full WRF-Hydro compiler validation is claimed by this documentation update.
+### Documentation
+
+- Present installation, modeling workflows, version selection, and validation in both project overviews.
+- Document upstream sources, package assembly, and platform-specific installation.
 
 ## [0.1.0] - 2026-08-27
 
