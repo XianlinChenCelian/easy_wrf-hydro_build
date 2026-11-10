@@ -137,6 +137,65 @@ function rangeText([minimum, maximum]) {
   return minimum === maximum ? label(minimum) : label(minimum) + " – " + label(maximum);
 }
 
+function parameterGallery(summary) {
+  const maps = summary.parameter_maps;
+  const gallery = element("section", undefined, "parameter-gallery");
+  const heading = element("h2", "参数空间分布");
+  const images = Object.entries(maps.images);
+  gallery.append(heading, element("small", "PNG 文件已保存到本次试验的 " + maps.directory + " 子目录。"));
+  if (images.length) {
+    const selector = element("select");
+    selector.setAttribute("aria-label", "选择参数分布图");
+    for (const [key] of images) {
+      const title = (labels[key] || key) + (key in summary.edits ? "（已调整）" : "");
+      selector.append(new Option(title, key));
+    }
+    selector.value = images.find(([key]) => key in summary.edits)?.[0] || images[0][0];
+    const link = element("a", "打开原图");
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    const controls = element("div", undefined, "gallery-controls");
+    controls.append(selector, link);
+    const figure = element("figure");
+    const image = element("img");
+    const caption = element("figcaption");
+    figure.append(image, caption);
+    const descriptions = {
+      raster: "模型网格", reach_points: "河段位置", groundwater_basins: "地下水分区网格",
+      groundwater_outlets: "地下水分区出口位置",
+    };
+    function showMap() {
+      const key = selector.value;
+      const record = maps.images[key];
+      const url = "/parameter-maps/" + summary.gallery + "/" + record.file;
+      image.src = url;
+      image.alt = (labels[key] || key) + "空间分布图";
+      link.href = url;
+      const layers = record.layers.length ? " · " + record.layers.length + " 个土层共用色标" : "";
+      const sampling = record.stride > 1 ? " · 每隔 " + record.stride + " 格采样显示" : "";
+      caption.textContent = descriptions[record.kind] + " · " + rangeText(record.range) +
+        " " + record.units + layers + sampling;
+    }
+    selector.addEventListener("change", showMap);
+    showMap();
+    gallery.append(controls, figure);
+  } else {
+    gallery.append(element("p", "当前试验没有可绘制的空间参数。"));
+  }
+  const skipped = Object.entries(maps.skipped);
+  if (skipped.length) {
+    const details = element("details");
+    details.append(element("summary", skipped.length + " 项未绘图"));
+    const list = element("ul");
+    for (const [key, reason] of skipped) {
+      list.append(element("li", (labels[key] || key) + " · " + reason));
+    }
+    details.append(list);
+    gallery.append(details);
+  }
+  return gallery;
+}
+
 function parameterRow(name, info) {
   const row = element("tr");
   const title = row.insertCell();
@@ -215,7 +274,8 @@ function showStatus(kind, status) {
   if (status.output) result.append(element("p", status.output));
   if (status.state === "error") result.append(element("p", status.error));
   if (status.state === "running") {
-    result.append(element("p", kind === "domain" ? stages[status.stage] : "正在复制模板并应用参数。"));
+    const task = status.stage === "maps" ? "正在绘制参数空间分布图…" : "正在复制模板并应用参数。";
+    result.append(element("p", kind === "domain" ? stages[status.stage] : task));
   }
   if (status.state !== "done") return;
   if (kind === "domain") {
@@ -236,6 +296,7 @@ function showStatus(kind, status) {
       result.append(changes);
     }
     result.append(element("small", "FORCING → " + status.summary.forcing_target));
+    result.append(parameterGallery(status.summary));
   }
 }
 

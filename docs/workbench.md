@@ -11,7 +11,7 @@ python -m pip install '.[parameters]'
 ewhb ui
 ```
 
-在流域制备环境已经激活时，安装项目后直接运行 `ewhb ui`。终端会显示默认地址 `http://127.0.0.1:8765/`，并尝试打开浏览器。端口占用时可用 `ewhb ui --port 8766`。
+在流域制备环境已经激活时，安装项目后直接运行 `ewhb ui`。较早创建的环境可重新执行 `python -m pip install '.[parameters]'` 补齐绘图依赖。终端会显示默认地址 `http://127.0.0.1:8765/`，并尝试打开浏览器。端口占用时可用 `ewhb ui --port 8766`。
 
 - macOS 在已激活的环境中启动，选择 Mac 路径。运行目录需要链接时，输出应放在 APFS 等支持符号链接的卷。
 - Windows 用户在 WSL2 终端运行 `ewhb ui --no-browser`，在 Windows 浏览器打开终端显示的地址。路径以 WSL 为准，例如 `/home/用户名/cases` 或 `/mnt/d/data`。建议把试验输出放在 Linux 家目录。[微软 WSL 网络说明](https://learn.microsoft.com/en-us/windows/wsl/networking#accessing-linux-networking-apps-from-windows-localhost)
@@ -33,3 +33,5 @@ ewhb ui
 选择离线驱动来源。默认沿用模板的 `FORCING`。若已单独完成单位转换和网格处理，可选择该目录，此时模板无需自带驱动。
 
 选择任意可写的新目录，点击「创建试验目录」。其中的 `DOMAIN/` 是独立副本，`FORCING` 自动链接到选定的驱动目录。参数改动写入 `parameters.json`，链接目标记入 `parameter-manifest.json`。模型运行所需的 namelist 仍按各试验的路径和时段准备。见[参数文件和运行方式](parameters.md)。
+
+试验目录的 `parameter-maps/` 保存每项可定位参数的 PNG，包括沿用模板的参数。结果区可切换参数、查看原图。图像读取本次写出的 NetCDF，分层土壤图使用共同色标，河段图展示实际位置，地下水图按分区编号绘制。模板缺少地下水分区网格时，能与河段匹配的旧版算例显示分区出口位置。未能定位或缺少数据的参数会列出原因。

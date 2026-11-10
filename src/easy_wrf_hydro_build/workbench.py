@@ -70,6 +70,24 @@ class WorkbenchServer(ThreadingHTTPServer):
         with self.state_lock:
             return self.jobs.get(kind, {}).copy()
 
+    def map_path(self, request_path):
+        parts = request_path.split("/")
+        if len(parts) != 4:
+            return None
+        _, _, gallery, filename = parts
+        job = self.status("calibration")
+        summary = job.get("summary", {})
+        if summary.get("gallery") != gallery:
+            return None
+        maps = summary["parameter_maps"]
+        if filename not in {entry["file"] for entry in maps["images"].values()}:
+            return None
+        folder = Path(job["output"]) / maps["directory"]
+        image = folder / filename
+        if folder.is_symlink() or image.is_symlink():
+            return None
+        return image
+
     def submit(self, kind, data):
         output = _local_path(data, "output")
         options = {}
@@ -113,8 +131,10 @@ class WorkbenchServer(ThreadingHTTPServer):
                 summary = {**report["routing_grid"], "lake_count": len(report.get("lake_ids", [])),
                            "stations": len(report.get("station_ids", []))}
             else:
-                report = apply_parameter_changes(*args, **options)
-                summary = {"edits": report["edits"], "forcing_target": report["forcing_target"]}
+                report = apply_parameter_changes(*args, **options, maps=True,
+                                                 map_progress=lambda: progress("maps"))
+                summary = {"edits": report["edits"], "forcing_target": report["forcing_target"],
+                           "parameter_maps": report["parameter_maps"], "gallery": token_urlsafe(18)}
             update(state="done", summary=summary)
         except INPUT_ERRORS as exc:
             update(state="error", error=_error(exc))
@@ -159,10 +179,12 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
 
     def _send(self, status, body, content_type):
         self.send_response(status)
-        self.send_header("Content-Type", content_type + "; charset=utf-8")
+        mime = content_type if content_type.startswith("image/") else content_type + "; charset=utf-8"
+        self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy",
                          "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
@@ -175,6 +197,17 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self._host_allowed():
             self._json(403, {"error": "请使用终端打印的本机地址。"})
+            return
+        if self.path.startswith("/parameter-maps/"):
+            image = self.server.map_path(self.path)
+            try:
+                body = image.read_bytes() if image is not None else None
+            except OSError:
+                body = None
+            if body is None:
+                self._json(404, {"error": "此参数图已不存在。"})
+            else:
+                self._send(200, body, "image/png")
             return
         if self.path not in ASSETS:
             self._json(404, {"error": "页面不存在。"})

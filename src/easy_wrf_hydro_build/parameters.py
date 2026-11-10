@@ -169,12 +169,12 @@ def list_parameters(template: Path) -> dict:
 
 
 def prepare_parameters(template: Path, config: Path, output: Path, *,
-                       forcing_dir: Path | None = None) -> dict:
-    return apply_parameter_changes(template, _read_changes(config), output, forcing_dir=forcing_dir)
+                       forcing_dir: Path | None = None, maps: bool = False) -> dict:
+    return apply_parameter_changes(template, _read_changes(config), output, forcing_dir=forcing_dir, maps=maps)
 
 
 def apply_parameter_changes(template: Path, changes: dict, output: Path, *,
-                            forcing_dir: Path | None = None) -> dict:
+                            forcing_dir: Path | None = None, maps: bool = False, map_progress=None) -> dict:
     domain = _case_directory(template, "DOMAIN")
     if forcing_dir is not None and not forcing_dir.is_dir():
         raise ValueError(f"Choose an existing offline forcing directory: {forcing_dir}")
@@ -187,6 +187,9 @@ def apply_parameter_changes(template: Path, changes: dict, output: Path, *,
     if any(root == output or root in output.parents for root in (domain.resolve(), forcing)):
         raise ValueError("Place the experiment outside the template DOMAIN and the selected forcing directory.")
     _validate_changes(changes)
+    if maps:
+        from .parameter_maps import MAP_DIRECTORY, write_parameter_maps
+
     output.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".ewhb-parameters-", dir=output.parent) as temporary:
         staging = Path(temporary) / "case"
@@ -223,6 +226,10 @@ def apply_parameter_changes(template: Path, changes: dict, output: Path, *,
                   "forcing_source": "custom" if forcing_dir is not None else "template",
                   "forcing_target": str(forcing), "forcing_link": link, "edits": edits,
                   "netcdf_files": provenance, "copied_tables": sorted(tables)}
+        if maps:
+            if map_progress is not None:
+                map_progress()
+            report["parameter_maps"] = write_parameter_maps(staging / "DOMAIN", staging / MAP_DIRECTORY)
         for name, content in (("parameters.json", changes), ("parameter-manifest.json", report)):
             (staging / name).write_text(json.dumps(content, indent=2) + "\n", encoding="utf-8")
         if output.exists() or output.is_symlink():

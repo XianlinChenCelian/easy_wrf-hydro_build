@@ -28,7 +28,7 @@ Issues = "https://github.com/XianlinChenCelian/easy_wrf-hydro_build/issues"
 Documentation = "https://github.com/XianlinChenCelian/easy_wrf-hydro_build/blob/main/docs/index.md"
 
 [project.optional-dependencies]
-parameters = ["numpy>=1.24", "netCDF4>=1.6"]
+parameters = ["numpy>=1.24", "netCDF4>=1.6", "matplotlib>=3.7"]
 forcing = ["numpy>=1.24", "netCDF4>=1.6", "xarray>=2024.3"]
 aorc = ["zarr>=2.18,<3", "fsspec>=2024.3", "aiohttp>=3.9", "dask[array]>=2024.3"]
 dev = [

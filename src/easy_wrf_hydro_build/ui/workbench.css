@@ -91,6 +91,14 @@ form { display: grid; gap: 14px; }
 .result[data-state=error] strong, .error-text { color: var(--danger); }
 .result > p { margin-top: 5px; white-space: pre-wrap; }
 .result ul { margin-bottom: 0; }
+.parameter-gallery { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 13px; }
+.gallery-controls { display: flex; align-items: center; gap: 12px; margin: 11px 0; }
+.gallery-controls select { max-width: 310px; }
+.gallery-controls a { color: var(--accent); white-space: nowrap; }
+.parameter-gallery figure { margin: 0; }
+.parameter-gallery img { display: block; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: white; }
+.parameter-gallery figcaption, .parameter-gallery details { margin-top: 8px; color: var(--muted); font-size: 12px; }
+.parameter-gallery summary { cursor: pointer; }
 .empty { padding: 16px 18px; }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; }

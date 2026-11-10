@@ -178,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     parameters.add_argument("--output", type=Path, help="New experiment directory (required with --config).")
     parameters.add_argument("--forcing-dir", type=Path,
                             help="Prepared offline forcing to link instead of the template FORCING.")
+    parameters.add_argument("--maps", action="store_true", help="Write parameter distribution PNGs.")
 
     ui = subparsers.add_parser("ui", help="Open the local domain and parameter workbench in a browser.")
     ui.add_argument("--port", type=int, default=8765, help="Loopback port (0 selects a free port).")
@@ -195,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "prepare-parameters":
-        if args.list and (args.output is not None or args.forcing_dir is not None):
+        if args.list and (args.output is not None or args.forcing_dir is not None or args.maps):
             parameters.error("--list only needs --template.")
         if args.config and args.output is None:
             parameters.error("--config requires --output.")
@@ -206,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 forcing_dir = args.forcing_dir.expanduser() if args.forcing_dir else None
                 result = prepare_parameters(template, args.config.expanduser(), args.output.expanduser(),
-                                            forcing_dir=forcing_dir)
+                                            forcing_dir=forcing_dir, maps=args.maps)
         except ModuleNotFoundError as exc:
             parameters.error(f"Missing {exc.name}. Install the parameters extra (docs/parameters.md).")
         except (ValueError, OSError, RuntimeError, OverflowError) as exc:
