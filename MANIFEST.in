@@ -2,5 +2,6 @@ recursive-include scripts/release *.py *.sh
 include docs/installation-recovery.md docs/oneapi-install.md docs/wrf-wps.md
 include docs/domain-preparation.md docs/forcing.md docs/parameters.md
 include docs/coupled-basin-examples.md
+include docs/workbench.md
 include examples/parameters.json
 recursive-include examples/domain *.py *.yml

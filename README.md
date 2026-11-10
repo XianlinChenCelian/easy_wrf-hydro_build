@@ -43,6 +43,10 @@ Linux、WSL2 和 Windows 上的 Linux 虚拟机在各自的 Linux 终端使用�
 
 [GFS 双向耦合流域算例](docs/coupled-basin-examples.md)随算例版附加包提供泾河和 Gasconade 的 GRIB2、区域静态瓦片及水文域文件。
 
+## 本机图形工作台
+
+在流域制备环境中运行 `ewhb ui`，可从已有 WPS 网格配置水文域，也可查看模板的参数值并创建独立率定目录。Windows 用户在 WSL2 或 Linux 虚拟机中启动。超算继续使用命令行。见[工作台使用说明](docs/workbench.md)。
+
 ## 安装
 
 在 Linux 终端中安装 Python 3.9+、Git 和 `venv`。Ubuntu 用户可以先执行：

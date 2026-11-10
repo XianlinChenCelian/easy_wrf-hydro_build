@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="ewhb-session" content="EWHB_SESSION_TOKEN">
+  <title>WRF-Hydro 工作台</title>
+  <link rel="stylesheet" href="/workbench.css">
+  <script src="/workbench.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M3 15 9 6l5 7 3-4 4 6M3 19c3-2 5 2 8 0s5 2 10 0" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div><strong>WRF-Hydro</strong><span>离线工作台</span></div>
+    </div>
+    <div class="nav-label">工作流</div>
+    <nav aria-label="工作流">
+      <button type="button" data-view="domain" aria-current="page"><span aria-hidden="true">▤</span>流域制备</button>
+      <button type="button" data-view="calibration"><span aria-hidden="true">≡</span>参数率定</button>
+    </nav>
+    <div class="local"><span aria-hidden="true"></span> 本机工作区</div>
+  </aside>
+  <main>
+    <section id="domain-view" aria-labelledby="domain-title">
+      <header class="page-title">
+        <p class="eyebrow">离线建模 / 空间输入</p>
+        <h1 id="domain-title">流域制备</h1>
+        <p>从已有 WPS 网格与高程数据生成水文路由网格、参数文件和离线初始场。</p>
+      </header>
+      <form id="domain-form">
+        <section class="card" aria-labelledby="inputs-title">
+          <div class="card-heading"><h2 id="inputs-title">空间输入</h2><p>地形栅格应覆盖整个 WPS 网格。</p></div>
+          <div class="fields">
+            <div class="field">
+              <label for="geogrid">WPS 网格 <span class="required">*</span></label>
+              <div class="path"><input id="geogrid" name="geogrid" required placeholder="…/geo_em.d01.nc"><button type="button" data-pick="geogrid" data-extensions=".nc">选择文件</button></div>
+              <small id="grid-status" aria-live="polite">支持等间距 Lambert 网格。</small>
+            </div>
+            <div class="field">
+              <label for="dem">高程栅格（DEM） <span class="required">*</span></label>
+              <div class="path"><input id="dem" name="dem" required placeholder="…/elevation.tif"><button type="button" data-pick="dem" data-extensions=".tif,.tiff">选择文件</button></div>
+            </div>
+            <div class="field">
+              <label for="stations">预报站点 <span class="optional">可选</span></label>
+              <div class="path"><input id="stations" name="stations" placeholder="…/stations.csv"><button type="button" data-pick="stations" data-extensions=".csv">选择文件</button></div>
+              <small>CSV 字段为 FID、LAT、LON。</small>
+            </div>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="routing-title">
+          <div class="card-heading"><h2 id="routing-title">水文网格与汇流</h2><p>设置陆面到水文网格的细化倍数，以及起河所需的累计网格数。</p></div>
+          <div class="fields">
+            <div class="columns">
+              <div class="field"><label for="ratio">陆面间距 ÷ 水文间距</label><input id="ratio" name="ratio" type="number" value="10" min="1" max="1000" step="1" required><small id="spacing">读取 WPS 网格后显示水文间距。</small></div>
+              <div class="field"><label for="threshold">起河阈值（格）</label><input id="threshold" name="threshold_cells" type="number" value="200" min="1" step="1" required><small id="area">阈值越大，提取的河网通常越稀。</small></div>
+            </div>
+            <label class="choice"><input type="checkbox" name="reach" checked><span><strong>生成河段路由表</strong><small>输出 Route_Link.nc，供河段汇流方案使用。</small></span></label>
+            <label class="choice"><input type="checkbox" id="lakes" name="lakes"><span><strong>启用湖库</strong><small>选择湖库多边形后生成 LAKEPARM.nc。</small></span></label>
+            <div class="field lake-path" id="lake-field" hidden>
+              <label for="lake-polygons">湖库多边形 <span class="required">*</span></label>
+              <div class="path"><input id="lake-polygons" name="lake_polygons" placeholder="…/reservoirs.shp" disabled><button type="button" data-pick="lake-polygons" data-extensions=".shp">选择文件</button></div>
+              <small>同目录保留同名 .shx、.dbf 和 .prj。</small>
+            </div>
+            <label class="choice"><input type="checkbox" id="mask" name="mask_to_stations" disabled><span><strong>将河网限制在站点上游</strong><small>提供站点 CSV 后可启用。</small></span></label>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="environment-title">
+          <div class="card-heading"><h2 id="environment-title">版本与输出</h2><p>参数表须对应模型版本和地类。工具按网格中的 MMINLU 选择 USGS 或 MODIS 表。</p></div>
+          <div class="fields">
+            <div class="columns">
+              <div class="field"><label for="version">WRF-Hydro 版本</label><select id="version" name="version" required></select></div>
+              <div class="field"><label for="month">初始场月份（1–12）</label><input id="month" name="month" type="number" value="1" min="1" max="12" step="1" required></div>
+            </div>
+            <div class="field">
+              <label for="gis">NCAR GIS 脚本目录 <span class="required">*</span></label>
+              <div class="path"><input id="gis" name="gis" required placeholder="…/ncar-gis/wrfhydro_gis"><button type="button" data-pick="gis">选择目录</button></div>
+            </div>
+            <div class="field">
+              <label for="tables">Noah-MP 参数表目录 <span class="required">*</span></label>
+              <div class="path"><input id="tables" name="tables" required placeholder="…/parameter-tables"><button type="button" data-pick="tables">选择目录</button></div>
+            </div>
+            <div class="field">
+              <label for="domain-output">新输出目录 <span class="required">*</span></label>
+              <div class="path"><input id="domain-output" name="output" required placeholder="…/domain-prep"><button type="button" data-pick="domain-output" data-new="domain-prep">选父目录</button></div>
+              <small>可直接修改完整路径。输出目录应尚未存在。</small>
+            </div>
+          </div>
+        </section>
+        <div class="actions"><p>结果包含 DOMAIN、路由 ZIP 和各阶段日志。</p><button class="primary" type="submit" disabled>生成水文域</button></div>
+        <div class="result" id="domain-result" aria-live="polite" hidden></div>
+      </form>
+    </section>
+
+    <section id="calibration-view" aria-labelledby="calibration-title" hidden>
+      <header class="page-title">
+        <p class="eyebrow">离线建模 / 参数试验</p>
+        <h1 id="calibration-title">参数率定</h1>
+        <p>查看模板的真实参数值，填写本次改动，创建独立运行目录。</p>
+      </header>
+      <form id="calibration-form">
+        <section class="card" aria-labelledby="template-title">
+          <div class="card-heading"><h2 id="template-title">初始模板</h2><p>选择包含 DOMAIN 的案例目录。</p></div>
+          <div class="fields">
+            <div class="field">
+              <label for="template">模板目录 <span class="required">*</span></label>
+              <div class="path"><input id="template" name="template" required placeholder="…/base-case"><button type="button" data-pick="template">选择目录</button></div>
+              <div class="inline-actions"><button id="read-template" type="button">读取模板参数</button><small id="template-status" aria-live="polite"></small></div>
+            </div>
+            <div class="field">
+              <label for="forcing-source">离线驱动来源</label>
+              <select id="forcing-source">
+                <option value="template">沿用模板的 FORCING</option>
+                <option value="custom">选择已制备的驱动目录</option>
+              </select>
+            </div>
+            <div class="field" id="forcing-field" hidden>
+              <label for="forcing-dir">已制备的离线驱动目录 <span class="required">*</span></label>
+              <div class="path"><input id="forcing-dir" placeholder="…/prepared-forcing" disabled><button type="button" data-pick="forcing-dir">选择目录</button></div>
+              <small>请选择已完成单位转换和网格处理的模型输入。文件保留在原目录。</small>
+            </div>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="values-title">
+          <div class="card-heading"><h2 id="values-title">参数表</h2><p>留空沿用模板。乘系数保留空间差异，统一设值会替换该变量的所有有效值。</p></div>
+          <p class="empty" id="parameters-empty">读取模板后，这里会显示参数原值或有效范围。</p>
+          <div class="table-scroll" id="parameter-table" hidden>
+            <table>
+              <thead><tr><th scope="col">参数</th><th scope="col">模板原值 / 范围</th><th scope="col">调整方式</th><th scope="col">新值</th></tr></thead>
+              <tbody id="parameter-rows"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="trial-title">
+          <div class="card-heading"><h2 id="trial-title">试验运行目录</h2><p>复制 DOMAIN 与模板提供的参数表，为气象驱动创建 FORCING 链接。</p></div>
+          <div class="fields">
+            <div class="field">
+              <label for="trial-output">新试验目录 <span class="required">*</span></label>
+              <div class="path"><input id="trial-output" name="output" required placeholder="…/experiments/trial-01"><button type="button" data-pick="trial-output" data-new="trial-01">选父目录</button></div>
+              <small>可直接填写完整路径。输出盘应支持目录链接。</small>
+            </div>
+          </div>
+        </section>
+        <div class="actions"><p>修改记录会写入新目录。</p><button class="primary" id="create-trial" type="submit" disabled>创建试验目录</button></div>
+        <div class="result" id="calibration-result" aria-live="polite" hidden></div>
+      </form>
+    </section>
+  </main>
+
+  <dialog id="picker" aria-labelledby="picker-title">
+    <div class="dialog-head"><h2 id="picker-title">选择路径</h2><button type="button" id="picker-close" aria-label="关闭">×</button></div>
+    <div class="dialog-body">
+      <div class="path"><input id="picker-path" aria-label="浏览位置"><button type="button" id="picker-go">前往</button></div>
+      <div class="shortcuts" id="picker-shortcuts"></div>
+      <div class="directory-list" id="picker-list" aria-label="当前目录内容"></div>
+      <p class="error-text" id="picker-error" aria-live="polite"></p>
+    </div>
+    <div class="dialog-actions"><button type="button" id="picker-cancel">取消</button><button class="primary" type="button" id="picker-select">使用当前目录</button></div>
+  </dialog>
+</body>
+</html>

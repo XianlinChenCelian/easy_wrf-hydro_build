@@ -16,6 +16,7 @@
 - [WRF/WPS 扩展与课程路线](wrf-wps.md)涵盖三组版本、双向耦合编译与分阶段验收。
 - [GFS 双向耦合流域算例](coupled-basin-examples.md)提供两流域的数据和完整运行命令。
 - [离线流域制备](domain-preparation.md)：共享静态数据、网格、河网、土壤和初始场。
+- [本机图形工作台](workbench.md)可从 WPS 网格制备水文域，并从模板创建参数试验。
 - [离线气象驱动](forcing.md)：本地原件转换、时间和格网检查及运行目录。
 - [参数试验](parameters.md)从模板调整 NetCDF 参数并共享驱动。
 

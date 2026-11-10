@@ -99,6 +99,30 @@ def test_invalid_parameters_do_not_publish_a_partial_case(tmp_path):
         prepare_parameters(template, config, output)
 
 
+def test_custom_forcing_can_use_a_domain_only_template(tmp_path, capsys):
+    template, weather = _template(tmp_path)
+    (template / "forcing").unlink()
+    config = tmp_path / "baseline.json"
+    config.write_text("{}")
+    output = tmp_path / "experiments" / "custom forcing trial"
+    alias = tmp_path / "prepared-driving-data"
+    alias.symlink_to(weather, target_is_directory=True)
+
+    assert main(["prepare-parameters", "--template", str(template), "--config", str(config),
+                 "--output", str(output), "--forcing-dir", str(alias)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["forcing_source"] == "custom"
+    assert report["forcing_target"] == str(weather.resolve())
+    assert (output / "FORCING").is_symlink()
+    assert (output / "FORCING").samefile(weather)
+    assert not (template / "forcing").exists()
+
+    with pytest.raises(ValueError, match="Choose an existing offline forcing directory"):
+        prepare_parameters(template, config, tmp_path / "missing-forcing", forcing_dir=tmp_path / "absent")
+    with pytest.raises(ValueError, match="outside the template DOMAIN and the selected forcing directory"):
+        prepare_parameters(template, config, weather / "nested-trial", forcing_dir=alias)
+
+
 def test_forcing_link_permission_error_points_to_a_supported_output(tmp_path, monkeypatch):
     template, _ = _template(tmp_path)
     config = tmp_path / "baseline.json"

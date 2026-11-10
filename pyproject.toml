@@ -46,5 +46,8 @@ easy-wrf-hydro-build = "easy_wrf_hydro_build.cli:main"
 where = ["src"]
 include = ["easy_wrf_hydro_build*"]
 
+[tool.setuptools.package-data]
+easy_wrf_hydro_build = ["ui/*.html", "ui/*.css", "ui/*.js"]
+
 [tool.ruff]
 line-length = 100

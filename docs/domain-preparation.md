@@ -2,6 +2,8 @@
 
 `ewhb prepare-domain` 在同一系统中执行 WPS、开源河网工具和 Noah-MP 初始化脚本。它读取一份 JSON 配置，生成 `namelist.wps`、`geo_em.d01.nc` 和 `DOMAIN/` 下的水文输入。适用于一个 Lambert 投影的离线 Noah-MP 区域。
 
+已有 `geo_em.d01.nc` 时，可用[本机图形工作台](workbench.md)选择 DEM、站点、湖库文件和路由参数。
+
 ## 1. 准备环境和数据
 
 先完成 [WRF/WPS 编译](wrf-wps.md)，然后在自己可写的位置创建独立地理处理环境。可在 macOS、Linux、WSL2 或 Linux 虚拟机中的同一终端执行下面的流程。高分辨率数据可放在共享盘或移动硬盘，Windows 盘上的 Linux 安装环境和大量临时小文件宜放进 Linux 文件系统。

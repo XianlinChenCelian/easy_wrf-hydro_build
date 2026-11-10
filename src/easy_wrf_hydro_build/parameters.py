@@ -53,7 +53,10 @@ def _read_changes(config: Path) -> dict:
             fields[key] = value
         return fields
 
-    changes = json.loads(config.read_text(encoding="utf-8"), object_pairs_hook=unique_fields)
+    return json.loads(config.read_text(encoding="utf-8"), object_pairs_hook=unique_fields)
+
+
+def _validate_changes(changes):
     if not isinstance(changes, dict):
         raise ValueError("Use a JSON object keyed by parameter name. An empty object makes a baseline copy.")
     for name, change in changes.items():
@@ -66,7 +69,6 @@ def _read_changes(config: Path) -> dict:
                 or value < 0 or (value == 0 and not PARAMETERS[name].zero_allowed)):
             bound = "nonnegative" if PARAMETERS[name].zero_allowed else "positive"
             raise ValueError(f"{name}: {operation} must be a finite {bound} number.")
-    return changes
 
 
 def _slices(shape):
@@ -166,16 +168,25 @@ def list_parameters(template: Path) -> dict:
     return {"template": str(template), "parameters": available}
 
 
-def prepare_parameters(template: Path, config: Path, output: Path) -> dict:
+def prepare_parameters(template: Path, config: Path, output: Path, *,
+                       forcing_dir: Path | None = None) -> dict:
+    return apply_parameter_changes(template, _read_changes(config), output, forcing_dir=forcing_dir)
+
+
+def apply_parameter_changes(template: Path, changes: dict, output: Path, *,
+                            forcing_dir: Path | None = None) -> dict:
     domain = _case_directory(template, "DOMAIN")
-    forcing = _case_directory(template, "FORCING").resolve(strict=True)
+    if forcing_dir is not None and not forcing_dir.is_dir():
+        raise ValueError(f"Choose an existing offline forcing directory: {forcing_dir}")
+    source = forcing_dir if forcing_dir is not None else _case_directory(template, "FORCING")
+    forcing = source.resolve(strict=True)
     # Resolve the parent only so a dangling output symlink cannot bypass the existence check.
     output = output.parent.resolve() / output.name
     if output.exists() or output.is_symlink():
         raise ValueError(f"Choose a new parameter experiment directory: {output}")
     if any(root == output or root in output.parents for root in (domain.resolve(), forcing)):
-        raise ValueError("Place the experiment outside the template DOMAIN and FORCING directories.")
-    changes = _read_changes(config)
+        raise ValueError("Place the experiment outside the template DOMAIN and the selected forcing directory.")
+    _validate_changes(changes)
     output.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".ewhb-parameters-", dir=output.parent) as temporary:
         staging = Path(temporary) / "case"
@@ -209,6 +220,7 @@ def prepare_parameters(template: Path, config: Path, output: Path) -> dict:
         for name in provenance:
             provenance[name]["result_sha256"] = sha256(staging / "DOMAIN" / name)
         report = {"template": str(template), "output": str(output), "domain": str(output / "DOMAIN"),
+                  "forcing_source": "custom" if forcing_dir is not None else "template",
                   "forcing_target": str(forcing), "forcing_link": link, "edits": edits,
                   "netcdf_files": provenance, "copied_tables": sorted(tables)}
         for name, content in (("parameters.json", changes), ("parameter-manifest.json", report)):

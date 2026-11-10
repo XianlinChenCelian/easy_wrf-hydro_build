@@ -1,6 +1,8 @@
 # 从模板生成参数试验
 
-`ewhb prepare-parameters` 从一个已有的离线算例创建一套新输入。新目录里的 `DOMAIN/` 是独立副本，`FORCING` 是指向模板气象驱动的目录链接。同一份模板可以生成多组试验，每组都从原始值开始计算。
+`ewhb prepare-parameters` 从一个已有的离线算例创建一套新输入。新目录里的 `DOMAIN/` 是独立副本，`FORCING` 链接到模板或另行指定的离线气象驱动。同一份模板可以生成多组试验，每组都从原始值开始计算。
+
+也可以在[本机图形工作台](workbench.md)读取模板参数、填入本次改动，再选择新运行目录。
 
 Easy VIC Build 把待率定参数和空间参数生成过程分别管理。这里沿用集中定义试验参数的思路，在 WRF-Hydro 已生成的 NetCDF 上应用改动。参数字段和文件位置按 WRF-Hydro 文档及 NCAR 率定工具核对。[Easy VIC Build 参数化方法](https://gmd.copernicus.org/articles/19/10503/2026/#section3) · [NCAR 参数调整脚本](https://github.com/NCAR/PyWrfHydroCalib/blob/master/core/adjust_parameters.py) · [WRF-Hydro 参数文件](https://wrf-hydro.readthedocs.io/en/stable/appendices.html#a9-spatially-distributed-soil-and-vegetation-parameters)
 
@@ -36,11 +38,13 @@ ewhb prepare-parameters --template "$BASE_CASE" \
 ```text
 trial-01/
 ├── DOMAIN/                 独立副本，配置指定的 NetCDF 字段已修改
-├── FORCING -> ...          链接到模板实际使用的驱动目录
+├── FORCING -> ...          链接到本组试验选定的驱动目录
 ├── parameters.json         本组试验的配置
 ├── parameter-manifest.json  参数修改前后范围、数据位置和校验值
 └── *.TBL                   如果模板提供，则复制到试验目录
 ```
+
+另选驱动时，在创建命令后加 `--forcing-dir /path/to/prepared-forcing`。这时模板只需有 `DOMAIN/`。指定的是已经完成单位转换和网格处理、可供模型读取的驱动目录。命令只建立目录链接，清单会记录实际目标路径。
 
 输出需为新目录。试验目录可放在移动硬盘上的 APFS 卷或 Linux 文件系统，Windows 的 WSL 用户可放在 Linux 家目录。exFAT 等无法创建目录链接时，模板和气象文件可继续放在原盘，给 `--output` 选一个支持链接的位置。移动试验目录时要保留与驱动目录的相对位置，或重新创建 `FORCING` 链接。
 

@@ -536,7 +536,38 @@ def _parameter_scripts(scripts, output, land_class):
 
 def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
     config = json.loads(config_path.read_text(encoding="utf-8"))
-    base = config_path.parent
+    return _prepare_domain(config, config_path.parent, output, config_path=config_path,
+                           geogrid_only=geogrid_only)
+
+
+def geogrid_domain(path: Path) -> dict:
+    """Read the single, square Lambert land grid used by the offline workflow."""
+    from netCDF4 import Dataset
+
+    _require(path)
+    attributes = {"cell_m": "DX", "ref_lat": "CEN_LAT", "ref_lon": "CEN_LON",
+                  "truelat1": "TRUELAT1", "truelat2": "TRUELAT2", "stand_lon": "STAND_LON"}
+    try:
+        with Dataset(path) as data:
+            if data.MAP_PROJ != 1 or not math.isclose(data.DX, data.DY, abs_tol=0.001):
+                raise ValueError("Choose a Lambert geogrid with equal DX and DY.")
+            values = {name: float(data.getncattr(attr)) for name, attr in attributes.items()}
+            we = len(data.dimensions["west_east"]) + 1
+            sn = len(data.dimensions["south_north"]) + 1
+    except (AttributeError, KeyError) as exc:
+        raise ValueError(f"Missing WPS geogrid metadata in {path}: {exc}") from exc
+    return {**_domain_values(values), "e_we": we, "e_sn": sn}
+
+
+def prepare_domain_from_geogrid(geogrid: Path, version: str, gis: Path, tables: Path,
+                                month: int, routing: dict, output: Path, *, progress=None):
+    config = {"wrf_hydro_version": version, "geogrid": str(geogrid), "domain": geogrid_domain(geogrid),
+              "ncar_gis": str(gis), "parameter_tables": str(tables), "initialization_month": month,
+              "routing": routing}
+    return _prepare_domain(config, Path.cwd(), output, progress=progress)
+
+
+def _prepare_domain(config, base, output, *, config_path=None, geogrid_only=False, progress=None):
     version = config["wrf_hydro_version"]
     if version not in ATMOSPHERE_PROFILES:
         raise ValueError(f"Unsupported WRF-Hydro version: {version}")
@@ -603,6 +634,9 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
     if output.exists():
         raise ValueError(f"Output directory already exists. Choose a new directory: {output}")
     output.mkdir(parents=True)
+    if config_path is None:
+        config_path = output / "domain-config.json"
+        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     manifest = {
         "wrf_hydro_version": version, "expected_wps_version": ATMOSPHERE_PROFILES[version]["wps"],
         "config": config, "config_path": str(config_path),
@@ -613,6 +647,8 @@ def prepare_domain(config_path: Path, output: Path, *, geogrid_only=False):
     def completed(stage):
         manifest["completed"].append(stage)
         report.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        if progress is not None:
+            progress(stage)
 
     report.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     geo = output / GEO
