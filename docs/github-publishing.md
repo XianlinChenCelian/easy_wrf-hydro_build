@@ -38,7 +38,7 @@ regeneration instructions are in [the artwork guide](assets/README.md).
 6. Review [verified builds](verified-builds.md) and state integration-test limits
    in the release notes. Passing CI is not a full model run.
 
-## First release
+## Public release checklist
 
 Suggested tag:
 
@@ -62,10 +62,10 @@ includes a per-version source recipe builder and documents the validation
 status of each toolchain.
 ```
 
-Do not attach Intel installers, Intel licenses, WRF-Hydro source archives,
-dependency source archives, example datasets, or packed personal environments
-to the GitHub release.
+Keep Intel installers and licenses on the vendor site. The private preview
+uses release attachments for the project’s versioned offline, source and
+example bundles. Review third-party redistribution terms before making
+those attachments public.
 
-Link the GitHub release to the [release matrix](release-bundles.md) and
-[oneAPI installation guide](oneapi-install.md). Users can assemble a selected
-Intel recipe from the upstream archives listed in those guides.
+Link the release to the [download matrix](release-bundles.md) and the
+[oneAPI installation guide](oneapi-install.md).
