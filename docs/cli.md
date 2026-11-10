@@ -9,6 +9,7 @@ The CLI accepts command-line arguments; it does **not** load YAML configuration 
 | --- | --- | --- |
 | `bootstrap` | Build local dependencies and WRF-Hydro | `--shared-dir`, `--prefix` |
 | `build-atmosphere` | Build [WRF/WPS or coupled WRF](wrf-wps.md) | `--shared-dir`, `--prefix`, `--netcdf`, `--coupled`, `--hydro-archives`, `--skip-wps` |
+| `run-basin` | Run a bundled [GFS coupled example](coupled-basin-examples.md) through WPS and WRF-Hydro | `--case`, `--build`, `--output` |
 | `fetch-geog` | Cache NCAR WPS static fields for reuse | `--cache` |
 | `prepare-domain` | Generate [offline domain inputs](domain-preparation.md) from JSON | `--config`, `--output` |
 | `fetch-forcing` | Download [weather source files](forcing.md) for a simulation period | `--source`, `--geogrid`, `--start`, `--end`, `--output` |

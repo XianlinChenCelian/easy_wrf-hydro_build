@@ -41,6 +41,8 @@ Linux、WSL2 和 Windows 上的 Linux 虚拟机在各自的 Linux 终端使用�
 
 三个版本均有可选的 WRF/WPS 源码扩展。`ewhb build-atmosphere --coupled` 可构建双向耦合的 WRF。编译复用同一工具链的 NetCDF。版本组合、输入与验收见 [WRF/WPS 扩展](docs/wrf-wps.md)。
 
+[GFS 双向耦合流域算例](docs/coupled-basin-examples.md)随算例版附加包提供泾河和 Gasconade 的 GRIB2、区域静态瓦片及水文域文件。
+
 ## 安装
 
 在 Linux 终端中安装 Python 3.9+、Git 和 `venv`。Ubuntu 用户可以先执行：
@@ -107,8 +109,7 @@ source ~/wrfhydro-gnu/wrf_hydro_gnu_env.sh
 ## 项目范围
 
 本项目构建 WRF-Hydro 离线 NoahMP / Noah 可执行文件，生成运行环境脚本，可选运行官方示例。
-WRF/WPS 编译、自定义流域预处理、率定及科学结果分析不在当前范围内。
-第三方源码、数据、Intel 安装程序与许可证由用户自行准备，仓库不随包分发。
+WRF/WPS 编译、流域预处理和耦合算例作为可选扩展。按所选编译器准备工具链，按使用场景选择对应的源码或算例包。
 
 ## 参与和引用
 

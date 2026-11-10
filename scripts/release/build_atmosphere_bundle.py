@@ -12,11 +12,16 @@ sys.path.insert(0, str(REPO / "src"))
 from easy_wrf_hydro_build.atmosphere import (  # noqa: E402
     ATMOSPHERE_PROFILES, SOURCE_HASHES, sha256, source_names,
 )
+from easy_wrf_hydro_build.basin import BASINS, DOMAIN_FILES  # noqa: E402
 
 
-def build(version, sources, output, *, coupled=False, hydro_archives=None):
+def build(version, sources, output, *, coupled=False, hydro_archives=None, cases=None, case_geog=None):
     if hydro_archives is not None and not coupled:
         raise ValueError("--hydro-archives requires --coupled.")
+    if cases is not None and not coupled:
+        raise ValueError("--cases requires --coupled.")
+    if case_geog is not None and cases is None:
+        raise ValueError("--case-geog requires --cases.")
     names = source_names(version, coupled=coupled)
     inputs = {name: (hydro_archives if hydro_archives is not None and name.startswith("wrf_hydro_")
                      else sources) / name for name in names}
@@ -24,7 +29,9 @@ def build(version, sources, output, *, coupled=False, hydro_archives=None):
         if sha256(path) != SOURCE_HASHES[filename]:
             raise ValueError(f"SHA256 mismatch: {filename}")
     output.mkdir(parents=True, exist_ok=True)
-    variant = "coupled" if coupled else "wrf-wps"
+    variant = "wrf-wps"
+    if coupled:
+        variant = "coupled" if cases is None else "coupled-basin"
     name = f"ewhb-hydro-{version}-{variant}-source-preview"
     artifact = output / (name + ".tar.gz")
     if artifact.exists():
@@ -37,6 +44,34 @@ def build(version, sources, output, *, coupled=False, hydro_archives=None):
         shutil.copytree(REPO / "src/easy_wrf_hydro_build", root / "tool/easy_wrf_hydro_build",
                         ignore=shutil.ignore_patterns("__pycache__", "._*"))
         shutil.copyfile(REPO / "docs/wrf-wps.md", root / "README.md")
+        shutil.copyfile(REPO / "docs/coupled-basin-examples.md", root / "coupled-basin-examples.md")
+        if cases is not None:
+            for basin in BASINS:
+                case_dir = cases / basin
+                case = json.loads((case_dir / "case.json").read_text())
+                if case["wrf_hydro"] != version or case["basin"] != basin:
+                    raise ValueError(f"Unexpected version or basin in {case_dir / 'case.json'}")
+                for filename, record in case["weather_files"].items():
+                    if sha256(case_dir / "GFS" / filename) != record["sha256"]:
+                        raise ValueError(f"Invalid GFS checksum in {case_dir / 'GFS' / filename}")
+                for filename in DOMAIN_FILES:
+                    if not (case_dir / "DOMAIN" / filename).is_file():
+                        raise ValueError(f"Missing domain input {case_dir / 'DOMAIN' / filename}")
+                shutil.copytree(case_dir, root / "cases" / basin, ignore=shutil.ignore_patterns("._*"))
+            if case_geog is not None:
+                if not (case_geog / "WPS_GEOG").is_dir():
+                    raise ValueError(f"Missing regional WPS_GEOG in {case_geog}")
+                shutil.copytree(case_geog, root / "static", ignore=shutil.ignore_patterns("._*"))
+            (root / "run-case.sh").write_text('''#!/bin/bash
+set -euo pipefail
+case "${1:-}" in
+  jing|gasconade) basin=$1; shift ;;
+  *) echo "Usage: bash run-case.sh jing|gasconade --build PREFIX --output NEW_DIR" >&2; exit 2 ;;
+esac
+root=$(cd "$(dirname "$0")" && pwd)
+export PYTHONPATH="$root/tool${PYTHONPATH:+:$PYTHONPATH}"
+exec "${PYTHON:-python3}" -m easy_wrf_hydro_build.cli run-basin --case "$root/cases/$basin" "$@"
+''', encoding="utf-8")
         shutil.copyfile(REPO / "LICENSE", root / "LICENSE")
         (root / "install.sh").write_text('''#!/bin/bash
 set -euo pipefail
@@ -58,6 +93,9 @@ exec "${PYTHON:-python3}" -m easy_wrf_hydro_build.cli build-atmosphere \\
                     "mode": "coupled" if coupled else "atmosphere-only",
                     "validation": "see external validation records",
                     "source_sha256": {name: SOURCE_HASHES[name] for name in names}}
+        if cases is not None:
+            manifest["basin_cases"] = list(BASINS)
+            manifest["case_geography_bundled"] = case_geog is not None
         (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         (root / "SHA256SUMS").write_text("".join(
             f"{sha256(path)}  {path.relative_to(root)}\n"
@@ -79,6 +117,9 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--coupled", action="store_true", help="Include pinned Hydro source for coupled WRF.")
     parser.add_argument("--hydro-archives", type=Path, help="Optional directory containing the Hydro source archive.")
+    parser.add_argument("--cases", type=Path, help="Include the two assembled, version-matched basin cases.")
+    parser.add_argument("--case-geog", type=Path, help="Include the regional WPS geography for the two cases.")
     args = parser.parse_args()
     print(build(args.wrf_hydro_version, args.sources, args.output,
-                coupled=args.coupled, hydro_archives=args.hydro_archives))
+                coupled=args.coupled, hydro_archives=args.hydro_archives, cases=args.cases,
+                case_geog=args.case_geog))

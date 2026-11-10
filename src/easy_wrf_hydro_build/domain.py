@@ -282,13 +282,15 @@ def _wps_string(value):
     return f"'{value}'"
 
 
-def _namelist(values, we, sn, static, resolution):
+def _namelist(values, we, sn, static, resolution, *,
+              start="2000-01-01_00:00:00", end="2000-01-01_00:00:00", interval=None):
+    interval_line = f" interval_seconds = {interval},\n" if interval is not None else ""
     return f"""&share
  wrf_core = 'ARW',
  max_dom = 1,
- start_date = '2000-01-01_00:00:00',
- end_date = '2000-01-01_00:00:00',
- io_form_geogrid = 2,
+ start_date = {_wps_string(start)},
+ end_date = {_wps_string(end)},
+{interval_line} io_form_geogrid = 2,
 /
 &geogrid
  parent_id = 1,

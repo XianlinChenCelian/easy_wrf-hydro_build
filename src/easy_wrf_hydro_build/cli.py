@@ -12,6 +12,7 @@ from zipfile import BadZipFile
 
 from .archives import WRF_HYDRO_RELEASES
 from .atmosphere import build_atmosphere
+from .basin import run_basin
 from .bootstrap import BootstrapConfig, bootstrap
 from .config import BuildConfig, CompileOptions
 from .doctor import run_doctor
@@ -126,6 +127,14 @@ def main(argv: list[str] | None = None) -> int:
     atmosphere.add_argument("--hydro-archives", type=Path, help="Reuse Hydro source archives from the offline package.")
     atmosphere.add_argument("--skip-wps", action="store_true", help="Reuse an existing compatible WPS build.")
     atmosphere.add_argument("--dry-run", action="store_true")
+
+    basin = subparsers.add_parser("run-basin", help="Run a bundled GFS/WPS and coupled WRF-Hydro basin case.")
+    basin.add_argument("--case", required=True, type=Path)
+    basin.add_argument("--build", required=True, type=Path)
+    basin.add_argument("--geog-data", type=Path, help="Override the bundled WPS geography with an NCAR cache.")
+    basin.add_argument("--output", required=True, type=Path)
+    basin.add_argument("--wps", type=Path, help="Override the WPS directory when reusing an existing build.")
+    basin.add_argument("--ranks", type=int, default=1)
 
     domain = subparsers.add_parser(
         "prepare-domain", help="Prepare WPS, routing and Noah-MP inputs for an offline basin (preview).",
@@ -246,6 +255,19 @@ def main(argv: list[str] | None = None) -> int:
             )
         except (ValueError, OSError, CalledProcessError, TimeoutExpired) as exc:
             atmosphere.error(str(exc))
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if args.command == "run-basin":
+        try:
+            result = run_basin(
+                args.case.expanduser().resolve(), args.build.expanduser().resolve(),
+                args.output.expanduser().resolve(),
+                geog=args.geog_data.expanduser().resolve() if args.geog_data else None,
+                wps_dir=args.wps.expanduser().resolve() if args.wps else None, ranks=args.ranks,
+            )
+        except (ValueError, OSError, KeyError) as exc:
+            basin.error(str(exc))
         print(json.dumps(result, indent=2))
         return 0
 

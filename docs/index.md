@@ -14,6 +14,7 @@
 4. [可运行示例 / Examples](../examples/README.md)：Intel 和 GNU 命令脚本。
 
 - [WRF/WPS 扩展与课程路线](wrf-wps.md)涵盖三组版本、双向耦合编译与分阶段验收。
+- [GFS 双向耦合流域算例](coupled-basin-examples.md)提供两流域的数据和完整运行命令。
 - [离线流域制备](domain-preparation.md)：共享静态数据、网格、河网、土壤和初始场。
 - [离线气象驱动](forcing.md)：本地原件转换、时间和格网检查及运行目录。
 - [参数试验](parameters.md)从模板调整 NetCDF 参数并共享驱动。

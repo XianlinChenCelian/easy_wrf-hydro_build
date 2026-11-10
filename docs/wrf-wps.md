@@ -42,6 +42,8 @@ Apple Silicon 的 Fortran 源码预处理使用 GNU `cpp`。随原 GNU 环境激
 
 ## 双向耦合
 
+带配套气象和区域静态输入的 [GFS 流域算例](coupled-basin-examples.md) 可直接用于泾河和 Gasconade 的 WPS、WRF 和水文联调。
+
 按 [NCAR 耦合构建指南](https://ral.ucar.edu/sites/default/files/docs/water/howtobuildandrunwrfhydrov511coupledtowrf.pdf)，可先分别编译和运行独立的 WRF 和 WRF-Hydro，确认工具链正常。构建耦合版时，工具将所选 Hydro 标签的原始源码接入新解压的 WRF 的 `hydro/`。5.1.2 和 5.2.0 使用 `trunk/NDHMS`，5.4.0 使用 `src`。随后设置 `WRF_HYDRO=1`，以 `dmpar` 配置执行 `compile em_real`。旧构建目录及其目标文件独立保存。
 
 ```bash

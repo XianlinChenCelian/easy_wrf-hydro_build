@@ -192,6 +192,15 @@ def _patch_hydro_coupler(hydro: Path, version: str) -> None:
             1,
         )
         routing_io.write_text(io_text)
+    if version in {"5.2.0", "5.4.0"}:
+        # Coupled WRF does not initialize the standalone orchestrator's NetCDF layer.
+        extension = ".F90" if version == "5.4.0" else ".F"
+        routing_io = hydro / "Routing" / ("module_NWM_io" + extension)
+        routing_io.write_text(routing_io.read_text().replace(
+            "orchestrator%IO_Manager%netcdf_layer%open_file(trim(nlst(1)%route_link_f)",
+            "nf90_open(trim(nlst(1)%route_link_f)",
+            1,
+        ))
 
 
 def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
