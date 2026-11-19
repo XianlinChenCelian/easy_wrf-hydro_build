@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import BuildConfig
 from .shell import run
+from .templates import intel_environment_block
 
 
 def _exists(path: Path) -> tuple[bool, str]:
@@ -17,45 +18,33 @@ def run_doctor(config: BuildConfig) -> list[tuple[str, bool, str]]:
     checks: list[tuple[str, bool, str]] = []
 
     checks.append(("wrf_hydro_root", *_exists(config.wrf_hydro_root)))
-    checks.append(("configure", *_exists(config.wrf_hydro_root / "configure")))
-    checks.append(("compile_script", *_exists(config.wrf_hydro_root / config.compile_script.strip("./"))))
+    if config.uses_cmake:
+        checks.append(("CMakeLists.txt", *_exists(config.wrf_hydro_root / "CMakeLists.txt")))
+    else:
+        checks.append(("configure", *_exists(config.wrf_hydro_root / "configure")))
+        checks.append(("compile_script", *_exists(config.wrf_hydro_root / config.compile_script)))
     checks.append(("netcdf_include", *_exists(config.netcdf_inc)))
     checks.append(("netcdf_lib", *_exists(config.netcdf_lib)))
     checks.append(("nf-config", *_exists(config.netcdf / "bin" / "nf-config")))
     checks.append(("nc-config", *_exists(config.netcdf / "bin" / "nc-config")))
 
-    if config.intel_home is not None:
-        checks.append(("intel_home", *_exists(config.intel_home)))
-        checks.append(("ifort", *_exists(config.intel_home / "bin" / "ifort")))
-
     setup = ""
-    if config.intel_home is not None:
+    if config.compiler_family == "intel" and config.intel_home is not None:
+        checks.append(("intel_home", *_exists(config.intel_home)))
         intel_home = shlex.quote(str(config.intel_home))
-        setup = (
-            f"INTEL_HOME={intel_home}; "
-            'if [ -f "$INTEL_HOME/setvars.sh" ]; then '
-            'source "$INTEL_HOME/setvars.sh" --force >/dev/null 2>&1 || '
-            'source "$INTEL_HOME/setvars.sh" >/dev/null 2>&1 || true; '
-            "else "
-            'compiler_vars=$(find "$INTEL_HOME" -path "*/bin/compilervars.sh" '
-            "-print -quit 2>/dev/null); "
-            '[ -n "$compiler_vars" ] && source "$compiler_vars" intel64 >/dev/null 2>&1 || true; '
-            'mpi_vars=$(find "$INTEL_HOME" \\( -path "*/linux/mpi/intel64/bin/mpivars.sh" '
-            '-o -path "*/mpi/latest/env/vars.sh" -o -path "*/mpi/*/env/vars.sh" \\) '
-            "-print -quit 2>/dev/null); "
-            '[ -n "$mpi_vars" ] && source "$mpi_vars" >/dev/null 2>&1 || true; '
-            "fi; "
-        )
+        activation = intel_environment_block(intel_home).rstrip()
+        setup = f"{{{activation}\n}} >/dev/null || exit $?\n"
 
-    compiler_tools = [config.mpi_wrapper, "make", "gcc"]
+    compiler_tools = [config.mpi_wrapper, "cmake" if config.uses_cmake else "make"]
     if config.compiler_family == "intel":
-        compiler_tools.extend(["ifort", "icc"])
+        compiler_tools.extend(("ifx", "icx") if config.compiler_option == "ifx" else ("ifort", "icc"))
     else:
-        compiler_tools.extend(["gfortran", "g++"])
+        compiler_tools.extend(("gcc", "gfortran", "g++"))
 
     for tool in compiler_tools:
-        result = run(["bash", "-lc", f"{setup}command -v {tool}"], check=False)
-        checks.append((tool, result.returncode == 0, result.stdout.strip() or result.stderr.strip()))
+        result = run(["bash", "-c", f'{setup}command -v -- "$1"', "ewhb-doctor", tool], check=False)
+        detail = result.stdout.strip() or result.stderr.strip() or "Activate a toolchain that provides this command."
+        checks.append((tool, result.returncode == 0, detail))
 
     for config_tool in ["nc-config", "nf-config"]:
         tool_path = config.netcdf / "bin" / config_tool

@@ -4,7 +4,8 @@ import tarfile
 import pytest
 
 from easy_wrf_hydro_build.atmosphere import (
-    ATMOSPHERE_PROFILES, SOURCE_HASHES, build_atmosphere, configuration_choice, unpack,
+    ATMOSPHERE_PROFILES, CONFIG_TOOLS, SOURCE_HASHES, _stage_netcdf_view, build_atmosphere,
+    configuration_choice, netcdf_library_dir, unpack,
 )
 
 
@@ -16,7 +17,38 @@ def test_each_profile_has_complete_pinned_offline_sources(tmp_path):
         assert plan["mode"] == "atmosphere-only"
         assert plan["coupled_validation"] == "pending"
         assert not (tmp_path / version).exists()
-    assert len(plan["sources"]) == 7  # WRF 4.6.1 requires its pinned Noah-MP submodule.
+    assert any(name.startswith("noahmp-") for name in plan["sources"])
+
+
+@pytest.mark.parametrize(("machine", "compiler", "needs_helpers"), [
+    ("x86_64", "gnu", False), ("arm64", "gnu", True), ("aarch64", "gnu", True),
+    ("x86_64", "intel", False),
+])
+def test_automake_archive_is_selected_only_for_arm_gnu(tmp_path, monkeypatch, machine, compiler, needs_helpers):
+    monkeypatch.setattr("easy_wrf_hydro_build.atmosphere.platform.machine", lambda: machine)
+    plan = build_atmosphere(tmp_path, tmp_path / "build", tmp_path / "nc",
+                            "5.1.2", compiler, dry_run=True)
+    assert (CONFIG_TOOLS in plan["sources"]) == needs_helpers
+
+
+def test_debian_netcdf_view_exposes_both_libraries_to_wrf_configure(tmp_path):
+    netcdf = tmp_path / "usr"
+    multiarch = netcdf / "lib" / "x86_64-linux-gnu"
+    multiarch.mkdir(parents=True)
+    (netcdf / "include").mkdir()
+    (netcdf / "bin").mkdir()
+    for name in ("libnetcdf.so", "libnetcdff.so"):
+        (multiarch / name).touch()
+    nf_config = netcdf / "bin" / "nf-config"
+    nf_config.write_text(f"#!/bin/sh\nprintf '%s\\n' '-L{multiarch} -lnetcdff -lnetcdf'\n")
+    nf_config.chmod(0o755)
+    prefix = tmp_path / "build"
+    prefix.mkdir()
+    view = _stage_netcdf_view(netcdf, netcdf_library_dir(netcdf), prefix)
+    assert (view / "lib/libnetcdf.so").resolve() == multiarch / "libnetcdf.so"
+    assert (view / "lib/libnetcdff.so").resolve() == multiarch / "libnetcdff.so"
+    assert (view / "include").resolve() == netcdf / "include"
+    assert not (netcdf / "lib/libnetcdf.so").exists()
 
 
 @pytest.mark.parametrize(("version", "layout"), [

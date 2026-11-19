@@ -1,23 +1,26 @@
 # Troubleshooting WRF-Hydro Builds
 
-This page records practical WRF-Hydro build issues that `easy_wrf-hydro_build`
-tries to prevent or make easier to reproduce.
+## Resume a bootstrap build
+
+Run the same command again with the same version, compiler, and prefix. The
+bootstrap script uses the completed steps recorded in `<prefix>/logs/`.
+
+For a build directory created before version tracking, choose a new prefix and
+reuse matching libraries from the previous build with
+`--netcdf /path/to/previous/gnu_libs`. Check that the directory contains
+`bin/nc-config` and `bin/nf-config`.
+
+When a legacy model compile fails, bootstrap prints the first compiler errors
+from `logs/compile_offline_NoahMP.log`. Check that file for the source line and
+compiler command.
 
 ## Pick One Compiler Family
 
-Do not mix compiler families inside one dependency prefix.
-
-Good layouts:
+Use one compiler family for the Fortran library, MPI wrappers, and model.
 
 ```text
 ~/wrfhydro-intel/intel_libs
 ~/wrfhydro-gnu/gnu_libs
-```
-
-Risky layout:
-
-```text
-~/wrfhydro_build/libs
 ```
 
 If NetCDF-Fortran was built with `ifort`, compile WRF-Hydro with Intel Fortran
@@ -91,8 +94,8 @@ Use this C/C++ flag when building the dependency stack:
 -D__PURE_INTEL_C99_HEADERS__
 ```
 
-The Intel bootstrap profile applies this flag automatically to C and C++
-dependency builds.
+For this toolchain, add that flag to `CFLAGS` and `CXXFLAGS` before
+building the dependencies.
 
 ## Environment Is Not Loaded
 
@@ -121,15 +124,14 @@ Prefer building large source trees inside the Linux filesystem, for example:
 /home/<user>/wrfhydro_build
 ```
 
-Shared archives can stay under `/mnt/d/...`, but repeated compilation is usually
-more predictable from the Linux filesystem.
+Store the shared archives under `/mnt/d/...` and build in the Linux home directory.
 
 ## NetCDF Environment Checks
 
 Use `doctor` before compiling.
 
-It checks paths and tool availability; it does not compile a probe program or
-prove that the libraries have a compatible Fortran ABI.
+It checks paths and tool availability. Run `bootstrap --netcdf` to compile and
+link a probe with the selected MPI wrapper and NetCDF-Fortran.
 
 Intel:
 
@@ -160,7 +162,7 @@ At minimum, it should find:
 After compilation, check the final executable with:
 
 ```bash
-ldd Run/wrf_hydro_NoahMP.exe
+ldd "$WRFHYDRO_RUN_DIR/wrf_hydro_NoahMP.exe"
 ```
 
 No required library should report `not found`.

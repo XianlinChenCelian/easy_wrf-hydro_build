@@ -2,6 +2,13 @@
 
 [项目首页](../README.md) · [English overview](../README_EN.md)
 
+| 要运行的任务 | 安装入口 |
+| --- | --- |
+| 在 Ubuntu、WSL2 或 Ubuntu 虚拟机上编译离线水文模型 | `ewhb bootstrap --netcdf /usr`，指定模型版本。[快速开始](quickstart.md) |
+| 在 macOS 上构建，或为单个版本准备固定依赖 | 按平台准备工具链，再运行 `ewhb bootstrap`。也可使用 GNU 离线包的 `python3 install.py`。[三版本安装](versioned-install.md) · [离线包](release-bundles.md) |
+| 使用 Intel Classic | 在 x86_64 Linux 或 WSL2 上安装 oneAPI 2023.2.4 与 Intel MPI 2021.10，或加载超算模块。[Intel 安装](oneapi-install.md) |
+| 编译 WRF 和 WPS，或运行双向耦合 | `ewhb build-atmosphere`。双向耦合加 `--coupled`。[WRF 与 WPS](wrf-wps.md) |
+
 ## 安装与构建 / Installation and builds
 
 - [快速开始 / Quick start](quickstart.md)

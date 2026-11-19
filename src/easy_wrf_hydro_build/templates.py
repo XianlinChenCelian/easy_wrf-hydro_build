@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import shlex
+import sys
+
 from .config import BuildConfig
 
 
@@ -73,16 +76,18 @@ def compile_options_script(config: BuildConfig) -> str:
 def runtime_env_script(config: BuildConfig) -> str:
     intel_lines = ""
     if config.intel_home is not None:
-        intel_lines = intel_environment_block(config.intel_home)
+        intel_lines = intel_environment_block(shlex.quote(str(config.intel_home)))
+    library_path = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
 
     return f"""#!/usr/bin/env bash
-export WRFHYDRO_ROOT={config.wrf_hydro_root}
-export NETCDF={config.netcdf}
+export WRFHYDRO_ROOT={shlex.quote(str(config.wrf_hydro_root))}
+export WRFHYDRO_RUN_DIR={shlex.quote(str(config.model_run_dir))}
+export NETCDF={shlex.quote(str(config.netcdf))}
 export NETCDF_INC="$NETCDF/include"
 export NETCDF_LIB="$NETCDF/lib"
 {intel_lines}
 export PATH="$NETCDF/bin:$PATH"
-export LD_LIBRARY_PATH="$NETCDF/lib:${{LD_LIBRARY_PATH:-}}"
+export {library_path}="$NETCDF_LIB${{{library_path}:+:${{{library_path}}}}}"
 
 {config.compile_options.to_shell_exports()}"""
 

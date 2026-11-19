@@ -40,6 +40,6 @@ python3 scripts/release/assemble_release_tree.py \
   --output /path/to/releases
 ```
 
-输出位于 `releases/linux-x86_64/intel/<版本>/`。超算先加载站点提供的编译器和 MPI。个人电脑使用 Intel 官方安装器，步骤见 [oneAPI 安装指南](oneapi-install.md)。离线构建提供 `ifort` 和预览的 `ifx` 入口，WRF/WPS 扩展采用 Intel Classic。
+输出位于 `releases/linux-x86_64/intel/<版本>/`。超算先加载站点提供的编译器和 MPI。个人电脑可以使用 oneAPI 2023.2.4 与 Intel MPI 2021.10。配方默认用 `ifort` 构建库和模型，`ifx` 预览使用 `EWHB_NETCDF` 指定匹配的 NetCDF。WRF/WPS 的 Intel 构建采用 Intel Classic。[oneAPI 安装指南](oneapi-install.md)
 
 完整本地发布树按 `系统-架构/编译器/WRF-Hydro 版本` 组织。`index.json` 记录附件、相应路线与可选的 WRF/WPS 扩展。

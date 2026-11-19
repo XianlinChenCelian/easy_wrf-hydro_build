@@ -54,6 +54,23 @@ WRF_HYDRO_RELEASES = {
 }
 
 
+def infer_wrf_hydro_version(shared_dir: Path) -> str | None:
+    candidates = {
+        path.name
+        for pattern in ARCHIVE_PATTERNS["wrf_hydro"]
+        for path in shared_dir.rglob(pattern)
+        if path.is_file()
+    }
+    if len(candidates) > 1:
+        names = ", ".join(sorted(candidates))
+        raise ValueError(f"Found multiple WRF-Hydro archives in {shared_dir}: {names}. "
+                         "Select one with --wrf-hydro-version.")
+    for version in WRF_HYDRO_RELEASES:
+        if f"wrf_hydro_nwm_public-{version}.tar.gz" in candidates:
+            return version
+    return None
+
+
 def _archive_sort_key(path: Path) -> tuple[int, str]:
     # Prefer archives closer to the shared directory root, then stable lexical order.
     return (len(path.parts), str(path).lower())

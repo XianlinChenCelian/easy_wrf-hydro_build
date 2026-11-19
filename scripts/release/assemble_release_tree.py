@@ -44,9 +44,9 @@ def create_intel_recipe(output, version, model_archives, dependency_archives):
             'On a cluster load its Intel compiler and MPI modules first, then run:\n'
             '  bash install.sh /absolute/new-prefix --site-toolchain ifort\n'
             'For personal oneAPI installation see ONEAPI.md and install-oneapi.sh.\n'
-            'Run: bash install.sh /absolute/new-prefix /path/to/oneapi-environment ifx\n'
-            'The ifx + mpiifx route is a preview. For classic toolchains choose ifort.\n'
-            'Builds zlib, HDF5 and NetCDF from pinned source archives.\n'
+            'Run: bash install.sh /absolute/new-prefix /path/to/oneapi-environment ifort\n'
+            'The ifort route builds zlib, HDF5 and NetCDF from source.\n'
+            'For the ifx preview, set EWHB_NETCDF to existing libraries built for ifx.\n'
             'Use a fresh prefix for each toolchain. Output is in PREFIX/install.log\n'
             'and PREFIX/model/logs. For a failed build review those logs and use a new prefix.\n'
         )

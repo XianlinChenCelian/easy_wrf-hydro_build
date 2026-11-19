@@ -57,16 +57,52 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def source_names(version: str, *, coupled: bool = False, build_wps: bool = True) -> list[str]:
+def source_names(version: str, *, coupled: bool = False, build_wps: bool = True,
+                 arm_config_tools: bool = False) -> list[str]:
     profile = ATMOSPHERE_PROFILES[version]
     names = [f"WRF-{profile['wrf']}.tar.gz"]
     if build_wps:
-        names.extend((f"WPS-{profile['wps']}.tar.gz", *GRIB_LIBRARIES, CONFIG_TOOLS))
+        names.extend((f"WPS-{profile['wps']}.tar.gz", *GRIB_LIBRARIES))
+        if arm_config_tools:
+            names.append(CONFIG_TOOLS)
     if profile["wrf"] == "4.6.1":
         names.extend(SUBMODULES.values())
     if coupled:
         names.append(f"wrf_hydro_nwm_public-{version}.tar.gz")
     return names
+
+
+def netcdf_library_dir(netcdf: Path) -> Path:
+    def has_libraries(directory: Path) -> bool:
+        return all(any((directory / f"{stem}.{ext}").is_file() for ext in ("so", "a", "dylib"))
+                   for stem in ("libnetcdf", "libnetcdff"))
+
+    for path in (netcdf / "lib", netcdf / "lib64"):
+        if has_libraries(path):
+            return path
+    for tool, option in (("nf-config", "--flibs"), ("nc-config", "--libs")):
+        command = netcdf / "bin" / tool
+        if not command.is_file():
+            continue
+        flags = shlex.split(subprocess.check_output([str(command), option], text=True))
+        for flag in flags:
+            if flag.startswith("-L") and len(flag) > 2:
+                path = Path(flag[2:])
+                if path.is_absolute() and has_libraries(path):
+                    return path
+    raise ValueError(f"No directory with both NetCDF-C and NetCDF-Fortran libraries was found for {netcdf}. "
+                     "Use one matching NetCDF installation with the development headers and libraries.")
+
+
+def _stage_netcdf_view(netcdf: Path, library_dir: Path, prefix: Path) -> Path:
+    if library_dir == netcdf / "lib":
+        return netcdf
+    view = prefix / "netcdf"
+    view.mkdir()
+    (view / "include").symlink_to(netcdf / "include", target_is_directory=True)
+    (view / "bin").symlink_to(netcdf / "bin", target_is_directory=True)
+    (view / "lib").symlink_to(library_dir, target_is_directory=True)
+    return view
 
 
 def unpack(archive: Path, destination: Path) -> Path:
@@ -212,7 +248,10 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
     profile = ATMOSPHERE_PROFILES[version]
     if hydro_archives is not None and not coupled:
         raise ValueError("--hydro-archives requires --coupled.")
-    names = source_names(version, coupled=coupled, build_wps=build_wps)
+    system, machine = platform.system(), platform.machine()
+    modern_arm = machine in ("aarch64", "arm64") and compiler == "gnu"
+    names = source_names(version, coupled=coupled, build_wps=build_wps,
+                         arm_config_tools=modern_arm)
     hydro_name = f"wrf_hydro_nwm_public-{version}.tar.gz"
     inputs = {name: (hydro_archives if name == hydro_name and hydro_archives is not None
                      else archives) / name for name in names}
@@ -229,7 +268,10 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
         raise ValueError("Choose build and NetCDF paths without whitespace or shell special characters.")
     if prefix.exists():
         raise ValueError("Use a fresh atmosphere prefix. Existing builds and failure logs are preserved.")
-    system, machine = platform.system(), platform.machine()
+    for name, path in inputs.items():
+        if not path.is_file():
+            option = "--hydro-archives" if name == hydro_name and hydro_archives else "--shared-dir"
+            raise FileNotFoundError(f"Missing {name}. Place it in {path.parent} ({option}).")
     if compiler == "gnu":
         cc = os.environ.get("CC") or ("clang" if system == "Darwin" else "gcc")
         fc = os.environ.get("FC") or "gfortran"
@@ -262,16 +304,19 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
     for name in ("include/netcdf.inc", "include/netcdf.mod", "bin/nf-config"):
         if not (netcdf / name).is_file():
             raise ValueError(f"Missing {netcdf / name}; select matching NetCDF-C and NetCDF-Fortran.")
+    library_dir = netcdf_library_dir(netcdf)
     hashes = {}
     for name, path in inputs.items():
         hashes[name] = sha256(path)
         if hashes[name] != SOURCE_HASHES[name]:
             raise ValueError(f"SHA256 mismatch: {name}; obtain the exact pinned upstream source.")
     prefix.mkdir(parents=True)
+    netcdf = _stage_netcdf_view(netcdf, library_dir, prefix)
     logs = prefix / "logs"
     logs.mkdir()
     plan.update(source_sha256=hashes, status="building", host=platform.node(),
-                system=platform.system(), machine=platform.machine())
+                system=system, machine=machine, netcdf_build_prefix=str(netcdf),
+                netcdf_library_dir=str(library_dir))
     report = prefix / "build-manifest.json"
     report.write_text(json.dumps(plan, indent=2) + "\n")
     env = os.environ.copy()
@@ -307,7 +352,6 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
         run("netcdf-probe-build", [mpifc, "-I" + str(netcdf / "include"), str(probe),
                                   "-o", str(prefix / "netcdf_probe"), *shlex.split(flags)], prefix)
         run("netcdf-probe-run", [str(prefix / "netcdf_probe")], prefix, timeout=30)
-        modern_arm = machine in ("aarch64", "arm64") and compiler == "gnu"
         for name in GRIB_LIBRARIES if build_wps else ():
             source = unpack(archives / name, prefix / "sources" / name.removesuffix(".tar.gz"))
             options = [f"--prefix={libs}"]

@@ -16,7 +16,7 @@ if (( EUID == 0 )); then
 fi
 prefix=$1
 toolchain=$2
-compiler=${3:-ifx}
+compiler=${3:-ifort}
 root=$(cd -- "$(dirname -- "$0")" && pwd -P)
 version=$(cat "$root/model-version.txt")
 jobs=${EWHB_JOBS:-4}
@@ -37,6 +37,14 @@ case "$compiler" in
   ifort|ifx) ;;
   *) printf 'Choose ifort or ifx.\n' >&2; exit 2 ;;
 esac
+if [[ -n ${EWHB_NETCDF:-} ]]; then
+  netcdf_args=(--netcdf "$EWHB_NETCDF")
+elif [[ $compiler == ifx ]]; then
+  printf 'Set EWHB_NETCDF to a NetCDF installation built for ifx, or use ifort to build the bundled libraries.\n' >&2
+  exit 2
+else
+  netcdf_args=(--build-netcdf)
+fi
 if [[ ! $jobs =~ ^[1-9][0-9]*$ ]]; then
   printf 'EWHB_JOBS must be a positive integer.\n' >&2
   exit 2
@@ -53,5 +61,5 @@ export PYTHONPATH="$root/tool"
 "$python" -m easy_wrf_hydro_build.cli bootstrap \
   --compiler-family intel --compiler-option "$compiler" "${intel_args[@]}" \
   --wrf-hydro-version "$version" --shared-dir "$root/archives" \
-  --prefix "$prefix/model" --build-netcdf --jobs "$jobs" --run-example \
+  --prefix "$prefix/model" "${netcdf_args[@]}" --jobs "$jobs" --run-example \
   2>&1 | tee "$prefix/install.log"

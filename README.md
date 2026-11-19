@@ -8,7 +8,7 @@
 
 ## 安装
 
-需要 Python 3.9 或以上版本。以下命令安装命令行工具。
+需要 Python 3.9 或更新版本。Ubuntu（含 WSL2）先运行 `sudo apt-get install -y git python3-venv`。pip 首次安装时从 PyPI 获取构建依赖。
 
 ```bash
 git clone https://github.com/XianlinChenCelian/easy_wrf-hydro_build.git
@@ -19,7 +19,9 @@ python -m pip install .
 ewhb --help
 ```
 
-在已有流域制备环境中，可直接从仓库安装。参数试验、绘图与气象转换的 Python 依赖可通过 `python -m pip install '.[parameters,forcing]'` 安装。流域制备所需的 GDAL、WhiteboxTools 和 NCAR GIS 脚本见[环境准备](docs/domain-preparation.md)。
+在 Ubuntu 上，可用系统 NetCDF 编译第一个离线模型。[快速开始](docs/quickstart.md)
+
+用 `python -m pip install '.[parameters,forcing]'` 安装参数试验、绘图和气象转换的 Python 依赖。流域制备使用 GDAL、WhiteboxTools 和 NCAR GIS 脚本。[流域制备环境](docs/domain-preparation.md)
 
 ## 建模流程
 
@@ -45,7 +47,7 @@ Apple Silicon macOS 与 Linux ARM64 使用 GNU。x86_64 Linux 可选择 GNU 或 
 
 ## 流域示例与运行验证
 
-- **Croton** 是 NCAR 提供的独立水文算例。三个模型版本均在 Apple Silicon macOS 和 Ubuntu ARM64 虚拟机完成 Croton 运行，每次生成 168 个逐小时站点输出。原生 x86_64 Linux 超算上的 Intel Classic 构建也完成了这三个版本的 Croton 运行。[验证记录](docs/verified-builds.md)
+- **Croton** 是 NCAR 提供的独立水文算例。三个版本均在 Apple Silicon macOS、Ubuntu ARM64 虚拟机和 x86_64 超算完成运行。Windows WSL2 上，5.1.2 的 GNU 与 Intel Classic 构建均完成运行。每次生成 168 个逐小时站点输出。[验证记录](docs/verified-builds.md)
 - **Gasconade 与泾河**沿用 Easy VIC Build 论文的两个研究区域。使用区域 GFS 驱动和匹配的水文域，三个版本在 Apple Silicon GNU 环境分别完成了两流域的 12 小时耦合流程，生成大气、河段和站点输出。[耦合算例](docs/coupled-basin-examples.md) · [Easy VIC Build 论文](https://doi.org/10.5194/gmd-19-10503-2026)
 
 ## 引用与贡献

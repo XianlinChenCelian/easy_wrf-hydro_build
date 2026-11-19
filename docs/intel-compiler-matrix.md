@@ -27,7 +27,9 @@ bash install.sh /absolute/path/to/new-prefix --site-toolchain ifort
 bash install.sh /absolute/path/to/new-prefix /path/to/oneapi ifort
 ```
 
-三个版本均可选择 `ifx` 预览，此路径需要 `icx` 与 `mpiifx`。经典路径需要 `ifort`、`icc` 与 `mpiifort`。个人电脑从零安装工具链见 [oneAPI 安装指南](oneapi-install.md)，配方内也附有该指南和 `install-oneapi.sh`。通过 `EWHB_PYTHON` 可指定独立 Python，通过 `EWHB_JOBS` 可指定构建并行数。HPC 上应从调度系统的计算作业执行。安装日志为 `PREFIX/install.log`，模型日志位于 `PREFIX/model/logs/`。
+个人电脑可使用 WSL2 已跑通的 oneAPI 2023.2.4 与 Intel MPI 2021.10 组合。配方默认使用 `ifort`。用 `ifx` 试编时，设置 `EWHB_NETCDF` 指向与 ifx 匹配的 NetCDF。[oneAPI 安装指南](oneapi-install.md)
+
+通过 `EWHB_PYTHON` 指定 Python，通过 `EWHB_JOBS` 设置并行数。超算用户在调度系统的计算作业中执行。安装日志为 `PREFIX/install.log`，模型日志在 `PREFIX/model/logs/`。
 
 每个编译器与版本使用新的目标路径。GNU 与 Intel 的 Fortran 模块和 MPI 环境各自构建。测试状态按实际编译器版本、模型版本和平台记录在[已验证构建](verified-builds.md)。
 

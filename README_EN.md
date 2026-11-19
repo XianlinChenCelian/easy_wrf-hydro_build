@@ -8,7 +8,7 @@ An open-source Python toolkit for building WRF-Hydro, preparing basin inputs, an
 
 ## Installation
 
-Install the command-line tools with Python 3.9 or later.
+Use Python 3.9 or later. On Ubuntu, including WSL2, first install `git` and `python3-venv` with `sudo apt-get install -y git python3-venv`. Pip downloads build dependencies from PyPI during installation.
 
 ```bash
 git clone https://github.com/XianlinChenCelian/easy_wrf-hydro_build.git
@@ -19,7 +19,9 @@ python -m pip install .
 ewhb --help
 ```
 
-If you already have a domain-processing environment, install the toolkit there. Use `python -m pip install '.[parameters,forcing]'` for parameter experiments, plotting, and forcing conversion. The [domain setup guide](docs/domain-preparation.md) lists the GDAL, WhiteboxTools, and NCAR GIS requirements.
+On Ubuntu, build your first standalone model with GNU and system NetCDF. [Build guide](docs/bootstrap.md)
+
+Use `python -m pip install '.[parameters,forcing]'` for parameter experiments, plotting, and forcing conversion. Domain preparation uses GDAL, WhiteboxTools, and the NCAR GIS scripts. [Domain setup](docs/domain-preparation.md)
 
 ## Modeling workflow
 
@@ -45,7 +47,7 @@ Apple Silicon macOS and ARM64 Linux use GNU. On x86_64 Linux, choose GNU or Inte
 
 ## Basin examples and run checks
 
-- **Croton** is NCAR’s standalone hydrology example. All three model releases completed the Croton run on Apple Silicon macOS and in an Ubuntu ARM64 VM, with 168 hourly gauge files per run. Intel Classic builds of all three releases also completed the run on a native x86_64 Linux cluster. [Validation records](docs/verified-builds.md)
+- **Croton** is NCAR’s standalone hydrology example. All three releases completed the case on Apple Silicon macOS, an Ubuntu ARM64 VM, and an x86_64 Linux cluster. On Windows WSL2, the GNU and Intel Classic builds of 5.1.2 both completed the case. Each run produced 168 hourly gauge files. [Validation records](docs/verified-builds.md)
 - **Gasconade and Jing River** are the two study regions used in the Easy VIC Build paper. With regional GFS forcing and matching hydrologic domains, all three releases completed a 12-hour coupled run in each basin on Apple Silicon with GNU. These runs produced atmospheric, river-reach, and gauge output. [Coupled basin examples](docs/coupled-basin-examples.md) · [Easy VIC Build paper](https://doi.org/10.5194/gmd-19-10503-2026)
 
 ## Citation and contributions

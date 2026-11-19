@@ -1,8 +1,25 @@
 # Verified Builds
 
-This document separates completed end-to-end tests from static branch checks.
-It should be updated whenever a new compiler or operating-system combination is
-reproduced from a clean prefix.
+## Windows WSL2 x86_64
+
+The 2026-11-12 test used Windows 11, WSL 3.0.5 and Ubuntu 24.04 x86_64 in an
+ext4 virtual disk. The GNU toolchain was GCC/GFortran 13.3 and Open MPI 4.1.6.
+The Intel Classic toolchain used oneAPI 2023.2.4 with Intel MPI 2021.10.
+
+| Build | NetCDF | Result |
+| --- | --- | --- |
+| WRF-Hydro 5.1.2, GNU | Ubuntu 4.9.2 (C) / 4.5.4 (Fortran) | Built in 16 s |
+| WRF-Hydro 5.2.0, GNU | Ubuntu 4.9.2 / 4.5.4 | Built in 53 s |
+| WRF-Hydro 5.4.0, GNU | Ubuntu 4.9.2 / 4.5.4 | Built in 55 s with CMake |
+| WRF-Hydro 5.1.2, GNU | Source build, 4.7.4 / 4.5.3 | Built in 8 min, Croton ran in 28 s |
+| WRF-Hydro 5.1.2, Intel Classic | Source build, 4.7.4 / 4.5.3 | Built in 324 s, Croton ran in 26 s |
+| WRF 4.2 and WPS 4.2, GNU | Source build, flat `lib/` layout | Five executables built and launched |
+| WRF 4.2 coupled with WRF-Hydro 5.1.2, GNU | Source build, flat `lib/` layout | Coupler symbols and dynamic libraries checked |
+
+Both Croton runs produced 168 hourly `CHANOBS` files through
+2011-09-02 00:00 with a readable `streamflow` variable. The WSL2 atmosphere
+tests covered the 4.2 pair and the coupled link. The coupled basin runs are
+recorded in the [basin examples](coupled-basin-examples.md).
 
 ## macOS arm64 versioned builds
 
@@ -17,10 +34,8 @@ The test used macOS 27.0.1, GNU Fortran 15.3.0, OpenMPI 5.0.11, NetCDF-C
 | 5.2.0 | configure / Make | 168 hourly gauge outputs through 2011-09-02 00:00 |
 | 5.4.0 | CMake | 168 hourly gauge outputs through 2011-09-02 00:00 |
 
-The final `streamflow` variable was read from each NetCDF gauge output. These
-are installation and runtime checks. Cross-version numerical agreement,
-scientific evaluation, and the three-version Linux/WSL2/virtual machine matrix
-are still pending.
+The final `streamflow` variable was read from the last NetCDF gauge file for
+each run.
 
 ## Intel classic
 
@@ -39,31 +54,6 @@ Verified components:
 The run used `scripts/linux/run_isolated_full_loop.sh`; it did not modify the
 pre-existing WRF, WPS, or WRF-Hydro directories.
 
-## Original GNU branch check (historical)
-
-Status on the original host: **branch verified; end-to-end build pending**.
-Later macOS and Linux GNU end-to-end results are recorded separately in this document.
-
-Completed checks:
-
-- GNU bootstrap script generation and Bash syntax validation.
-- `gnu_libs` dependency-prefix isolation.
-- `gcc`, `g++`, `gfortran`, and `mpif90` command generation.
-- WRF-Hydro official `gfort` configure option and `macros.mpp.gfort`
-  `COMPILER90=mpif90` agreement.
-
-The original validation host did not have `gfortran` and `mpif90` installed, so
-that host could not provide a clean GNU dependency build and Croton run. This is
-an explicit release limitation, not a claim of end-to-end GNU validation.
-
-## Intel oneAPI
-
-Status: **environment compatibility work in progress**.
-
-The generated environment loader recognizes oneAPI `setvars.sh`. A successful
-environment load alone is not sufficient to claim a supported WRF-Hydro build,
-especially for ifx-only installations. See [Intel compiler matrix](intel-compiler-matrix.md).
-
 ## Offline bundle relocation checks (2026-11-07)
 
 Three independent osx-arm64 candidate bundles contain one model release, its
@@ -73,8 +63,8 @@ All three models completed Croton with 168 hourly CHANOBS outputs ending at
 2011-09-02 00:00; the final streamflow variable was read with ncdump.
 The 5.4.0 check exposed shell-launch and Mach-O signature relocation issues;
 it completed after those fixes. Versions 5.1.2 and 5.2.0 passed from new prefixes
-using the corrected installer. This is a same-host relocation test, not a clean
-host or cross-platform certification. See [release bundles](release-bundles.md).
+using the corrected installer. The relocation runs used the same Mac.
+See [release bundles](release-bundles.md).
 
 ## Ubuntu ARM64 offline bundles (2026-11-07)
 
@@ -89,8 +79,7 @@ local package artifacts. Each completed the model build and Croton run with
 and final streamflow variable were checked. The final bundles contain 86 exact
 conda dependency artifacts including GNU Fortran 15.3.0, OpenMPI 5.0.11,
 NetCDF-C 4.10.1 and NetCDF-Fortran 4.6.4. The build sysroot is pinned to glibc
-2.28; the actual validation host uses Ubuntu 24.04's newer glibc. Older glibc
-hosts, x86_64, WSL2 on Windows, and other VM implementations remain untested.
+2.28. These runs used the glibc shipped with Ubuntu 24.04.
 
 The minimal Ubuntu test exposed the legacy Makefiles' direct invocation of
 `ar`; adding the conda binutils package resolves this without requiring a
@@ -104,9 +93,8 @@ compilation and Croton execution in Ubuntu 24.04 x86_64 userspace under QEMU
 10.2.3, hosted by the ARM64 Linux VM. ELF machine 62 was checked for each
 runtime executable. Each produced 168 hourly CHANOBS outputs ending at
 2011-09-02 00:00, with a successful diagnostic marker and readable final
-streamflow. This does not certify native Windows WSL2, an x86_64 kernel, or
-native x86_64 performance. The package sysroot baseline is glibc 2.28; the
-validation userspace has glibc 2.39.
+streamflow. The package sysroot baseline is glibc 2.28 and the emulated Ubuntu
+userspace uses glibc 2.39.
 
 The installer now checks ownership, write/execute/symlink support, noexec and
 shared filesystems, space, architecture and WSL1. It provides --check-only,
@@ -127,10 +115,9 @@ job `300214` exited with status 1 in its post-run check. Follow-up job
 `300215` loaded the Intel runtime, verified the count and last timestamp,
 and read the final streamflow successfully with exit status `0:0`.
 
-The personal oneAPI installer helper was checked with a simulated installer.
-Actual Intel toolkit installation on a personal Linux or WSL2 host, the
-modern `ifx` model route, and 5.1.2/5.2.0 with this Intel recipe are pending.
-See [oneAPI setup](oneapi-install.md) and the [matrix](intel-compiler-matrix.md).
+OneAPI 2023.2.4 was installed through Intel APT for the Windows WSL2 test.
+The offline installer helper was checked with a simulated installer. See
+[oneAPI setup](oneapi-install.md).
 
 ### Direct use of a loaded HPC toolchain
 
@@ -141,5 +128,4 @@ shared the compatible Intel NetCDF libraries built from source in the earlier
 5.4.0 test, so this run verifies the loaded-toolchain and model path across
 versions. Each Croton run produced 168 hourly files ending at 2011-09-02
 00:00, and its final `streamflow` was readable. The allocation completed
-with exit code `0:0` in 6 minutes 53 seconds. The standalone personal oneAPI
-installation and the `ifx` routes remain previews.
+with exit code `0:0` in 6 minutes 53 seconds.

@@ -20,6 +20,7 @@ from .domain import fetch_geog, prepare_domain
 from .forcing import DOWNLOAD_PRODUCTS, PRODUCTS, fetch_weather as download_weather, prepare_forcing, prepare_weather
 from .parameters import list_parameters, prepare_parameters
 from .paths import EwhbCase
+from .sources import fetch_sources
 from .workflow import compile_wrf_hydro, write_runtime_env
 
 
@@ -48,6 +49,7 @@ def _build_config(args: argparse.Namespace) -> BuildConfig:
         land_model=args.land_model,
         mpi_wrapper=mpi_wrapper,
         compile_options=options,
+        run_dir=args.run_dir.expanduser().resolve() if getattr(args, "run_dir", None) else None,
     )
 
 
@@ -79,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     write_env = subparsers.add_parser("write-env", help="Write a reusable runtime environment script.")
     _add_build_args(write_env)
     write_env.add_argument("--output", required=True)
+    write_env.add_argument("--run-dir", type=Path, help="Path to model executables and tables.")
 
     compile_cmd = subparsers.add_parser("compile", help="Configure and compile WRF-Hydro.")
     _add_build_args(compile_cmd)
@@ -96,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     bootstrap_cmd.add_argument(
         "--wrf-hydro-version",
         choices=WRF_HYDRO_RELEASES,
-        help="Select a WRF-Hydro release and its matching Croton archive.",
+        help="Select a release and its Croton archive. One recognized source archive can be detected automatically.",
     )
     bootstrap_cmd.add_argument("--netcdf", help="Use existing NetCDF-C and NetCDF-Fortran libraries.")
     bootstrap_cmd.add_argument("--build-netcdf", action="store_true", help="Build NetCDF and its dependencies from source archives.")
@@ -115,6 +118,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     bootstrap_cmd.add_argument("--example-np", type=int, default=1)
     bootstrap_cmd.add_argument("--dry-run", action="store_true")
+
+    sources = subparsers.add_parser("fetch-sources", help="Download sources for one WRF-Hydro release.")
+    sources.add_argument("--wrf-hydro-version", required=True, choices=WRF_HYDRO_RELEASES)
+    sources.add_argument("--output", required=True, type=Path)
+    sources.add_argument("--build-netcdf", action="store_true", help="Include zlib, HDF5 and NetCDF sources.")
+    sources.add_argument("--atmosphere", action="store_true", help="Include WRF, WPS and GRIB2 sources.")
+    sources.add_argument("--arm-config-tools", action="store_true", help="Include ARM64 helpers when downloading on x86_64.")
+    sources.add_argument("--github-mirror", default=os.environ.get("EWHB_GITHUB_MIRROR"),
+                         help="HTTPS mirror with the same URL layout as codeload.github.com.")
 
     atmosphere = subparsers.add_parser("build-atmosphere", help="Build WRF/WPS or coupled WRF | WRF-Hydro.")
     atmosphere.add_argument("--shared-dir", required=True)
@@ -304,8 +316,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if ok else 1
 
     if args.command == "write-env":
-        output = write_runtime_env(_build_config(args), Path(args.output).expanduser().resolve())
+        try:
+            output = write_runtime_env(_build_config(args), Path(args.output).expanduser().resolve())
+        except (OSError, ValueError) as exc:
+            write_env.error(str(exc))
         print(output)
+        return 0
+
+    if args.command == "fetch-sources":
+        try:
+            fetch_sources(
+                args.wrf_hydro_version, args.output.expanduser().resolve(),
+                build_netcdf=args.build_netcdf, atmosphere=args.atmosphere,
+                arm_config_tools=args.arm_config_tools, github_mirror=args.github_mirror,
+            )
+        except (OSError, ValueError) as exc:
+            sources.error(str(exc))
         return 0
 
     if args.command == "compile":
@@ -320,7 +346,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "bootstrap":
         if args.compiler_family is None:
-            args.compiler_family = "intel" if args.site_toolchain or not args.wrf_hydro_version else "gnu"
+            intel = args.site_toolchain or args.intel_home or args.compiler_option in {"ifort", "ifx"}
+            args.compiler_family = "intel" if intel else "gnu"
         compiler_option, mpi_wrapper = _compiler_defaults(args)
         intel_home = Path(args.intel_home).expanduser().resolve() if args.intel_home else None
         if args.compiler_family == "intel" and intel_home is None and not args.site_toolchain:
@@ -347,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
                     site_toolchain=args.site_toolchain,
                 ),
                 dry_run=args.dry_run,
+                show_plan=args.dry_run,
             )
         except (ValueError, FileNotFoundError) as exc:
             bootstrap_cmd.error(str(exc))
@@ -356,9 +384,7 @@ def main(argv: list[str] | None = None) -> int:
             if exc.stderr:
                 print(exc.stderr)
             return exc.returncode if exc.returncode > 0 else 1
-        if isinstance(result, Path):
-            print(result)
-        else:
+        if not isinstance(result, Path):
             print(result.stdout)
             if result.stderr:
                 print(result.stderr)

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from subprocess import run
 
@@ -39,8 +40,28 @@ def test_cli_generates_the_selected_release_script(tmp_path: Path, version: str)
     assert script.read_text() == content
 
 
+def test_inferred_release_selects_the_same_build_and_rejects_ambiguous_archives(tmp_path, capsys):
+    archives = tmp_path / "archives"
+    archives.mkdir()
+    (archives / "wrf_hydro_nwm_public-5.1.2.tar.gz").touch()
+    prefix = tmp_path / "build"
+    args = ["bootstrap", "--shared-dir", str(archives), "--prefix", str(prefix),
+            "--netcdf", "/usr", "--dry-run"]
+    assert main(args) == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["wrf_hydro_version"] == "5.1.2"
+    script = Path(plan["script"])
+    assert "-fallow-argument-mismatch" in script.read_text()
+
+    (archives / "wrf_hydro_nwm_public-5.4.0.tar.gz").touch()
+    with pytest.raises(SystemExit):
+        main(args)
+    assert "Select one with --wrf-hydro-version" in capsys.readouterr().err
+    assert (prefix / "wrf_hydro_version.txt").read_text().strip() == "5.1.2"
+
+
 @pytest.mark.parametrize("version", WRF_HYDRO_RELEASES)
-def test_ifx_source_recipe_uses_intel_mpi_and_the_matching_build_system(tmp_path, version):
+def test_ifx_route_uses_existing_netcdf_and_rejects_the_old_hdf5_recipe(tmp_path, version, capsys):
     archives = tmp_path / "archives"
     archives.mkdir()
     for filename in (
@@ -53,13 +74,17 @@ def test_ifx_source_recipe_uses_intel_mpi_and_the_matching_build_system(tmp_path
         "bootstrap", "--shared-dir", str(archives), "--prefix", str(prefix),
         "--wrf-hydro-version", version, "--compiler-family", "intel",
         "--compiler-option", "ifx", "--intel-home", str(tmp_path / "oneapi"),
-        "--build-netcdf", "--dry-run",
+        "--dry-run",
     ]
-    assert main(args) == 0
+    with pytest.raises(SystemExit):
+        main([*args, "--build-netcdf"])
+    assert "HDF5 1.12.0" in capsys.readouterr().err
+    assert not prefix.exists()
+    assert main([*args, "--netcdf", str(tmp_path / "netcdf")]) == 0
     script = prefix / "bootstrap_easy_wrf_hydro.sh"
     content = script.read_text()
-    assert "USE_EXISTING_NETCDF=0" in content
-    assert "NETCDF_FORTRAN_ARCHIVE=" in content
+    assert "USE_EXISTING_NETCDF=1" in content
+    assert "NETCDF_FORTRAN_ARCHIVE=" not in content
     assert "MPI_WRAPPER=mpiifx" in content
     assert "-dumpversion" not in content
     assert "export CC=icx CXX=icpx FC=ifx" in content

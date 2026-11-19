@@ -22,7 +22,7 @@ def build(version, sources, output, *, coupled=False, hydro_archives=None, cases
         raise ValueError("--cases requires --coupled.")
     if case_geog is not None and cases is None:
         raise ValueError("--case-geog requires --cases.")
-    names = source_names(version, coupled=coupled)
+    names = source_names(version, coupled=coupled, arm_config_tools=True)
     inputs = {name: (hydro_archives if hydro_archives is not None and name.startswith("wrf_hydro_")
                      else sources) / name for name in names}
     for filename, path in inputs.items():

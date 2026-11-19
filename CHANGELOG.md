@@ -11,11 +11,20 @@ All notable changes to this project are documented here.
 - HRLDAS forcing conversion for ERA5-Land, NLDAS-2, AORC, and custom inputs.
 - Standalone parameter experiments with shared forcing, PNG maps, and a local browser workbench.
 - Coupled Gasconade and Jing River examples with GFS forcing and run manifests.
+- `ewhb fetch-sources` downloads one model version and verifies the archive checksums.
+
+### Fixed
+
+- Bootstrap applies the selected version's compatibility settings when the source directory contains a single recognized model archive.
+- WRF/WPS finds Debian and Ubuntu multiarch NetCDF libraries. Only GNU ARM64 builds request Automake's configuration helpers.
+- `doctor` recognizes CMake source trees and finds Intel compilers in the activated environment. `write-env` exports the model run directory.
+- Legacy builds report the first compiler errors. Intel ifx builds select an existing NetCDF installation.
 
 ### Documentation
 
 - Present installation, modeling workflows, version selection, and validation in both project overviews.
 - Document upstream sources, package assembly, and platform-specific installation.
+- Record Windows WSL2 builds and Croton runs, and start Ubuntu users with the system NetCDF route.
 
 ## [0.1.0] - 2026-08-27
 

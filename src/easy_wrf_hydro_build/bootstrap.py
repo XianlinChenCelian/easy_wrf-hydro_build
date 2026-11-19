@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import stat
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
-from .archives import WRF_HYDRO_RELEASES, SourceArchive, discover_archives, require_archives
+from .archives import (
+    WRF_HYDRO_RELEASES, SourceArchive, discover_archives, infer_wrf_hydro_version,
+    require_archives,
+)
 from .shell import CommandResult, run
 from .templates import intel_environment_block
 
@@ -36,6 +40,10 @@ class BootstrapConfig:
     @property
     def uses_cmake(self) -> bool:
         return self.wrf_hydro_version == "5.4.0"
+
+    @property
+    def uses_existing_netcdf(self) -> bool:
+        return self.netcdf_prefix is not None or (self.uses_cmake and not self.build_netcdf)
 
     @property
     def netcdf(self) -> Path:
@@ -103,7 +111,7 @@ stage_croton_example() {{
 run_croton_example() {{
   source "$PREFIX/{config.env_script_name}"
   cd "$EXAMPLE_RUN_DIR"
-  mpirun -np {config.example_np} ./{executable} 2>&1 | tee "$LOG_DIR/run_croton_$EXAMPLE_CONFIG.log"
+  mpirun -np {config.example_np} ./{executable}
 }}
 
 run_step stage_croton_$EXAMPLE_CONFIG stage_croton_example
@@ -332,15 +340,23 @@ EOF
     printf '\\nNETCDFLIB = %s\\n' "$(nf-config --flibs)" >> macros
   fi
   grep '^COMPILER90' macros
-  {compile_script} setEnvar_easy_wrf_hydro.sh 2>&1 | tee "$LOG_DIR/compile_offline_{config.land_model}.log"
-  test -x "$MODEL_RUN_DIR/wrf_hydro_{config.land_model}.exe"
+  local compile_log="$LOG_DIR/compile_offline_{config.land_model}.log"
+  if ! {compile_script} setEnvar_easy_wrf_hydro.sh 2>&1 | tee "$compile_log" ||
+     [ ! -x "$MODEL_RUN_DIR/wrf_hydro_{config.land_model}.exe" ] ||
+     grep -q 'Make NOT successful' "$compile_log"; then
+    echo "WRF-Hydro compilation failed. Log: $compile_log" >&2
+    if grep -qiE '(^|[[:space:]:])(fatal[[:space:]]+)?error([[:space:]]+#[0-9]+)?[[:space:]]*:' "$compile_log"; then
+      echo "First compiler errors:" >&2
+      grep -inE -m 5 '(^|[[:space:]:])(fatal[[:space:]]+)?error([[:space:]]+#[0-9]+)?[[:space:]]*:' "$compile_log" >&2
+    fi
+    return 1
+  fi
 }}
 """
 
 
 def bootstrap_script(config: BootstrapConfig, archives: dict[str, SourceArchive]) -> str:
     intel_home = _quote(config.intel_home) if config.intel_home is not None else '""'
-    uses_existing_netcdf = config.netcdf_prefix is not None or (config.uses_cmake and not config.build_netcdf)
     netcdf_path = f'"$PREFIX/{config.compiler_family}_libs"'
     netcdf_check = ""
     if config.netcdf_prefix is not None:
@@ -370,7 +386,7 @@ BUILD_DIR="$PREFIX/build"
 LOG_DIR="$PREFIX/logs"
 JOBS={config.jobs}
 SKIP_DEPS={1 if config.skip_deps else 0}
-USE_EXISTING_NETCDF={int(uses_existing_netcdf)}
+USE_EXISTING_NETCDF={int(config.uses_existing_netcdf)}
 MPI_WRAPPER={_quote(config.mpi_wrapper)}
 
 {_archive_exports(archives)}
@@ -529,12 +545,25 @@ echo "Model executable: $EXECUTABLE"
 """
 
 
-def write_bootstrap_script(config: BootstrapConfig) -> Path:
+def _resolve_version(config: BootstrapConfig) -> BootstrapConfig:
+    if config.wrf_hydro_version is None:
+        return replace(config, wrf_hydro_version=infer_wrf_hydro_version(config.shared_dir))
+    return config
+
+
+def write_bootstrap_script(config: BootstrapConfig, *, show_plan: bool = False) -> Path:
+    config = _resolve_version(config)
     version = config.wrf_hydro_version
     if config.site_toolchain and (config.compiler_family != "intel" or version is None or config.intel_home is not None):
         raise ValueError("--site-toolchain requires a versioned Intel build without --intel-home.")
     if config.build_netcdf and config.netcdf_prefix is not None:
         raise ValueError("Choose either source-built NetCDF or an existing NetCDF prefix.")
+    if (config.compiler_family == "intel" and config.compiler_option == "ifx"
+            and not config.uses_existing_netcdf):
+        raise ValueError("The bundled HDF5 1.12.0 source build uses Intel Classic. "
+                         "For ifx, pass --netcdf with libraries built for ifx and use mpiifx.")
+    if config.jobs < 1:
+        raise ValueError("--jobs must be positive.")
     discovered = discover_archives(config.shared_dir, wrf_hydro_version=version)
     if version is not None and discovered["wrf_hydro"] is None:
         raise FileNotFoundError(f"Missing wrf_hydro_nwm_public-{version}.tar.gz in {config.shared_dir}")
@@ -548,25 +577,49 @@ def write_bootstrap_script(config: BootstrapConfig) -> Path:
             archive = WRF_HYDRO_RELEASES[version or "5.1.2"]
             raise FileNotFoundError(f"Missing required Croton example archive: {archive}")
         required["croton_example"] = example
-    config.prefix.mkdir(parents=True, exist_ok=True)
+    content = bootstrap_script(config, required)
     version_file = config.prefix / "wrf_hydro_version.txt"
     if version_file.exists():
         if version_file.read_text(encoding="utf-8").strip() != version:
             raise ValueError("This prefix belongs to another WRF-Hydro version; choose a new --prefix.")
-    elif version is not None:
-        if (config.prefix / "logs").exists():
-            raise ValueError("Choose a new --prefix for the versioned build.")
+    elif version is not None and (config.prefix / "logs").exists():
+        old_netcdf = config.prefix / f"{config.compiler_family}_libs"
+        raise ValueError("This build directory predates version tracking. Use a new --prefix. "
+                         f"To reuse matching libraries, pass --netcdf {_quote(old_netcdf)} "
+                         "if that directory contains nc-config and nf-config under bin/.")
+    config.prefix.mkdir(parents=True, exist_ok=True)
+    if version is not None and not version_file.exists():
         version_file.write_text(f"{version}\n", encoding="utf-8")
     path = config.script_path
-    path.write_text(bootstrap_script(config, required), encoding="utf-8")
+    path.write_text(content, encoding="utf-8")
     _make_executable(path)
+    if show_plan:
+        netcdf = ("active nf-config on PATH" if config.uses_existing_netcdf and config.netcdf_prefix is None
+                  else str(config.netcdf))
+        print(json.dumps({
+            "wrf_hydro_version": version,
+            "build_system": "cmake" if config.uses_cmake else "configure/make",
+            "compiler_family": config.compiler_family,
+            "compiler_option": config.compiler_option,
+            "mpi_wrapper": config.mpi_wrapper,
+            "jobs": config.jobs,
+            "prefix": str(config.prefix),
+            "netcdf": netcdf,
+            "build_netcdf": not config.uses_existing_netcdf,
+            "gnu_argument_mismatch_flag": (
+                "enabled for GNU Fortran 10+" if version == "5.1.2" and config.compiler_family == "gnu"
+                else "not needed by this profile"
+            ),
+            "archives": {name: str(archive.path) for name, archive in required.items()},
+            "script": str(path),
+        }, indent=2))
     return path
 
 
-def bootstrap(config: BootstrapConfig, *, dry_run: bool = False) -> Path | CommandResult:
+def bootstrap(config: BootstrapConfig, *, dry_run: bool = False, show_plan: bool = False) -> Path | CommandResult:
     if not dry_run and os.name == "nt":
         raise ValueError("Run this command inside WSL or a Linux virtual machine on Windows.")
-    script = write_bootstrap_script(config)
+    script = write_bootstrap_script(config, show_plan=show_plan)
     if dry_run:
         return script
     return run(["bash", str(script)], cwd=config.prefix, env=os.environ, check=True)

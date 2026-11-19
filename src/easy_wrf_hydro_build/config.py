@@ -41,6 +41,22 @@ class BuildConfig:
     compiler_option: str = "ifort"
     land_model: str = "NoahMP"
     compile_options: CompileOptions = field(default_factory=CompileOptions)
+    run_dir: Path | None = None
+
+    @property
+    def uses_cmake(self) -> bool:
+        return (self.wrf_hydro_root / "CMakeLists.txt").is_file()
+
+    @property
+    def model_run_dir(self) -> Path:
+        if self.run_dir is not None:
+            return self.run_dir
+        if not self.uses_cmake:
+            return self.wrf_hydro_root / "Run"
+        sources = self.wrf_hydro_root.parent
+        if sources.name == "sources":
+            return sources.parent / "build" / "Run"
+        raise ValueError("Pass --run-dir pointing to the Run directory of this CMake build.")
 
     @property
     def netcdf_inc(self) -> Path:
