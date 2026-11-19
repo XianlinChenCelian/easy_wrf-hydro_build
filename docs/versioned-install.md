@@ -13,7 +13,7 @@
 ## 准备工具链
 
 - **macOS**。可以用 Homebrew 安装 `gcc open-mpi netcdf-fortran cmake`，NetCDF-Fortran 会带上 NetCDF-C。确认 `mpif90`、`nc-config` 和 `nf-config` 在当前终端可用。将 `--netcdf` 指向包含两种配置工具的 Homebrew 前缀，也可以使用一套已激活且 ABI 匹配的独立环境。
-- **Ubuntu Linux、WSL2 或 Windows 中的 Ubuntu 虚拟机**。在 Ubuntu 终端安装 `build-essential gfortran openmpi-bin libopenmpi-dev libnetcdf-dev libnetcdff-dev cmake csh`，然后将 `--netcdf` 设为 `/usr`。其他 Linux 发行版使用等效软件包或集群模块。
+- **Ubuntu Linux、WSL2 或 Windows 中的 Ubuntu 虚拟机**。在 Ubuntu 终端安装 `build-essential gfortran openmpi-bin libopenmpi-dev libnetcdf-dev libnetcdff-dev cmake csh`，运行离线模型构建时使用 `ewhb bootstrap --netcdf /usr`。其他 Linux 发行版使用等效软件包或集群模块。编译 WRF/WPS 时，按 [WRF/WPS 安装步骤](wrf-wps.md#使用)准备额外依赖。
 
 安装工具自身需要 Python 3.9 或更新版本，见[快速开始](quickstart.md)。
 使用已有 NetCDF 时，生成的安装脚本会先试编译并链接一个使用 MPI 和 NetCDF-Fortran 的小程序，再编译模型。

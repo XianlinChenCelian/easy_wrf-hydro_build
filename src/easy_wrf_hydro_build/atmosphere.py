@@ -47,6 +47,7 @@ COUPLED_OPTIONS = {
     "NCEP_WCOSS": "0", "NWM_META": "0", "WRF_HYDRO_NUDGING": "0",
     "HYDRO_REALTIME": "0", "OUTPUT_CHAN_CONN": "0", "PRECIP_DOUBLE": "0",
 }
+UNSAFE_BUILD_PATH = re.compile(r"[\s\\:$#(){}\[\]&;|<>\x60\"']")
 
 
 def sha256(path: Path) -> str:
@@ -72,6 +73,18 @@ def source_names(version: str, *, coupled: bool = False, build_wps: bool = True,
     return names
 
 
+def _link_library_dirs(flags: str) -> list[Path]:
+    directories = []
+    tokens = iter(shlex.split(flags))
+    for flag in tokens:
+        if not flag.startswith("-L"):
+            continue
+        path = Path(next(tokens, "") if flag == "-L" else flag[2:])
+        if path.is_absolute():
+            directories.append(path)
+    return list(dict.fromkeys(directories))
+
+
 def netcdf_library_dir(netcdf: Path) -> Path:
     def has_libraries(directory: Path) -> bool:
         return all(any((directory / f"{stem}.{ext}").is_file() for ext in ("so", "a", "dylib"))
@@ -84,12 +97,10 @@ def netcdf_library_dir(netcdf: Path) -> Path:
         command = netcdf / "bin" / tool
         if not command.is_file():
             continue
-        flags = shlex.split(subprocess.check_output([str(command), option], text=True))
-        for flag in flags:
-            if flag.startswith("-L") and len(flag) > 2:
-                path = Path(flag[2:])
-                if path.is_absolute() and has_libraries(path):
-                    return path
+        flags = subprocess.check_output([str(command), option], text=True)
+        for path in _link_library_dirs(flags):
+            if has_libraries(path):
+                return path
     raise ValueError(f"No directory with both NetCDF-C and NetCDF-Fortran libraries was found for {netcdf}. "
                      "Use one matching NetCDF installation with the development headers and libraries.")
 
@@ -183,6 +194,29 @@ def patch_config(path: Path, values: dict[str, str]) -> None:
     path.write_text(text)
 
 
+def _add_wrf_netcdf_c_lib_dirs(config: Path, netcdf: Path, env: dict[str, str]) -> list[str] | None:
+    # WRF 4.2/4.3 use nc-config only if nf-config returned no -L flags.
+    # On Ubuntu, the HDF5 search path comes from NetCDF-C.
+    match = re.search(r"^DEP_LIB_PATH[ \t]*=[ \t]*(.*)$", config.read_text(), flags=re.MULTILINE)
+    if match is None:
+        return None
+    existing = match[1].rstrip()
+    directories = _link_library_dirs(existing)
+    nc_config = netcdf / "bin" / "nc-config"
+    if nc_config.is_file():
+        flags = subprocess.check_output([str(nc_config), "--libs"], env=env, text=True, timeout=30)
+        extra = [path for path in _link_library_dirs(flags)
+                 if path not in directories and path != netcdf / "lib"]
+        if extra:
+            for path in extra:
+                if UNSAFE_BUILD_PATH.search(str(path)):
+                    raise ValueError(f"WRF library directories must not contain whitespace or shell characters: {path}")
+            value = " ".join([existing, *(f"-L{path}" for path in extra)]).strip()
+            patch_config(config, {"DEP_LIB_PATH": value})
+            directories.extend(extra)
+    return [str(path) for path in directories]
+
+
 def _patch_hydro_coupler(hydro: Path, version: str) -> None:
     if version == "5.2.0":
         # Hydro needs the WRF domain dimensions and its own communicator.
@@ -264,7 +298,7 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
     if dry_run:
         return plan
     # WRF's legacy makefiles cannot reliably handle spaces in source/library paths.
-    if any(re.search(r"[\s\\:$#(){}\[\]&;|<>`\"']", str(path)) for path in (prefix, netcdf)):
+    if any(UNSAFE_BUILD_PATH.search(str(path)) for path in (prefix, netcdf)):
         raise ValueError("Choose build and NetCDF paths without whitespace or shell special characters.")
     if prefix.exists():
         raise ValueError("Use a fresh atmosphere prefix. Existing builds and failure logs are preserved.")
@@ -476,6 +510,9 @@ def build_atmosphere(archives: Path, prefix: Path, netcdf: Path, version: str,
                 settings["CCOMP"] = cc + c_compat
                 if c_compat:
                     settings["CC_TOOLS"] = "$(SCC)"
+                dependency_dirs = _add_wrf_netcdf_c_lib_dirs(config, netcdf, env)
+                if dependency_dirs is not None:
+                    plan["wrf_netcdf_dependency_dirs"] = dependency_dirs
             if gnu_cpp:
                 settings["CPP"] = f"{gnu_cpp} -P " + ("-nostdinc" if component == "WRF" else "-traditional")
             patch_config(config, settings)

@@ -16,7 +16,8 @@ All notable changes to this project are documented here.
 ### Fixed
 
 - Bootstrap applies the selected version's compatibility settings when the source directory contains a single recognized model archive.
-- WRF/WPS finds Debian and Ubuntu multiarch NetCDF libraries. Only GNU ARM64 builds request Automake's configuration helpers.
+- WRF/WPS finds Debian and Ubuntu multiarch NetCDF libraries. WRF 4.2 and 4.3 also use NetCDF-C's library search paths to find HDF5.
+- Only GNU ARM64 builds request Automake's configuration helpers.
 - `doctor` recognizes CMake source trees and finds Intel compilers in the activated environment. `write-env` exports the model run directory.
 - Legacy builds report the first compiler errors. Intel ifx builds select an existing NetCDF installation.
 

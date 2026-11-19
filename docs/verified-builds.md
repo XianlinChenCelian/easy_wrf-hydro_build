@@ -17,9 +17,15 @@ The Intel Classic toolchain used oneAPI 2023.2.4 with Intel MPI 2021.10.
 | WRF 4.2 coupled with WRF-Hydro 5.1.2, GNU | Source build, flat `lib/` layout | Coupler symbols and dynamic libraries checked |
 
 Both Croton runs produced 168 hourly `CHANOBS` files through
-2011-09-02 00:00 with a readable `streamflow` variable. The WSL2 atmosphere
-tests covered the 4.2 pair and the coupled link. The coupled basin runs are
-recorded in the [basin examples](coupled-basin-examples.md).
+2011-09-02 00:00 with a readable `streamflow` variable. The coupled basin
+runs are recorded in the [basin examples](coupled-basin-examples.md).
+
+On 2026-11-19, the WSL2 regression at `142b708` built standalone WRF-Hydro
+5.1.2 with the system NetCDF and completed Croton in 29 seconds including
+the build. For WRF 4.2 with `--netcdf /usr`, the NetCDF probe and WRF
+configuration passed. The WRF link completed after the tester added the
+HDF5 search directory to `configure.wrf`. This test covered WRF only.
+The WRF/WPS pair in the table used the source-built NetCDF installation.
 
 ## macOS arm64 versioned builds
 

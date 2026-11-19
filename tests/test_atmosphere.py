@@ -1,11 +1,13 @@
 import io
+import shutil
+import subprocess
 import tarfile
 
 import pytest
 
 from easy_wrf_hydro_build.atmosphere import (
-    ATMOSPHERE_PROFILES, CONFIG_TOOLS, SOURCE_HASHES, _stage_netcdf_view, build_atmosphere,
-    configuration_choice, netcdf_library_dir, unpack,
+    ATMOSPHERE_PROFILES, CONFIG_TOOLS, SOURCE_HASHES, _add_wrf_netcdf_c_lib_dirs,
+    _stage_netcdf_view, build_atmosphere, configuration_choice, netcdf_library_dir, unpack,
 )
 
 
@@ -49,6 +51,63 @@ def test_debian_netcdf_view_exposes_both_libraries_to_wrf_configure(tmp_path):
     assert (view / "lib/libnetcdff.so").resolve() == multiarch / "libnetcdff.so"
     assert (view / "include").resolve() == netcdf / "include"
     assert not (netcdf / "lib/libnetcdf.so").exists()
+
+
+def test_wrf_legacy_link_uses_hdf5_paths_from_netcdf_c(tmp_path):
+    cc, ar, make = (shutil.which(tool) for tool in ("cc", "ar", "make"))
+    if not all((cc, ar, make)):
+        pytest.skip("C compiler, ar and make required for the link regression")
+
+    # Debian installs the unqualified link names inside the HDF5 subdirectory.
+    multiarch = tmp_path / "usr/lib/x86_64-linux-gnu"
+    serial = multiarch / "hdf5/serial"
+    serial.mkdir(parents=True)
+    names = ("hdf5_hl", "hdf5")
+    for name in names:
+        obj = tmp_path / f"{name}.o"
+        subprocess.run(
+            [cc, "-x", "c", "-c", "-o", str(obj), "-"],
+            input=f"void ewhb_test_{name}(void) {{}}\n", text=True, check=True,
+        )
+        library = multiarch / f"lib{name}_serial.a"
+        subprocess.run([ar, "rcs", str(library), str(obj)], check=True)
+        (serial / f"lib{name}.a").symlink_to(library)
+
+    netcdf = tmp_path / "build/netcdf"
+    (netcdf / "bin").mkdir(parents=True)
+    nc_config = netcdf / "bin/nc-config"
+    nc_config.write_text(
+        f"#!/bin/sh\n[ \"$1\" = --libs ] || exit 2\n"
+        f"printf '%s\\n' '-L{multiarch} -L {serial} -L{serial} -lnetcdf'\n"
+    )
+    nc_config.chmod(0o755)
+    config = tmp_path / "configure.wrf"
+    config.write_text(
+        f"DEP_LIB_PATH = -L{multiarch}\n"
+        "HDF5 = -lhdf5_hl -lhdf5\n"
+        "NETCDF4_DEP_LIB = $(DEP_LIB_PATH) $(HDF5)\n"
+    )
+    (tmp_path / "probe.c").write_text(
+        "void ewhb_test_hdf5_hl(void), ewhb_test_hdf5(void);\n"
+        "int main(void) { ewhb_test_hdf5_hl(); ewhb_test_hdf5(); return 0; }\n"
+    )
+    makefile = f"include configure.wrf\nlink:\n\t{cc} probe.c $(NETCDF4_DEP_LIB) -o probe\n"
+    assert subprocess.run([make, "-f", "-", "link"], input=makefile, cwd=tmp_path,
+                          text=True, capture_output=True).returncode != 0
+
+    assert _add_wrf_netcdf_c_lib_dirs(config, netcdf, {}) == [str(multiarch), str(serial)]
+    assert _add_wrf_netcdf_c_lib_dirs(config, netcdf, {}) == [str(multiarch), str(serial)]
+    assert config.read_text().count(f"-L{serial}") == 1
+    assert "-lnetcdf" not in config.read_text()
+    subprocess.run([make, "-f", "-", "link"], input=makefile, cwd=tmp_path, text=True, check=True)
+    subprocess.run([str(tmp_path / "probe")], check=True)
+
+
+def test_wrf_config_without_legacy_dependency_variable_is_unchanged(tmp_path):
+    config = tmp_path / "configure.wrf"
+    config.write_text("NETCDF4_IO_OPTS = -DUSE_NETCDF4_FEATURES\n")
+    assert _add_wrf_netcdf_c_lib_dirs(config, tmp_path / "netcdf", {}) is None
+    assert config.read_text() == "NETCDF4_IO_OPTS = -DUSE_NETCDF4_FEATURES\n"
 
 
 @pytest.mark.parametrize(("version", "layout"), [

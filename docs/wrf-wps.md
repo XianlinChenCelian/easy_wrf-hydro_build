@@ -19,7 +19,7 @@
 激活 GNU 或 Intel Classic 工具链。Ubuntu（含 WSL2）使用系统 GNU 工具链时，先按[快速开始](quickstart.md)安装 MPI 和 NetCDF，再安装 WRF/WPS 的系统工具。
 
 ```bash
-sudo apt-get install -y csh perl make m4 cpp binutils libtirpc-dev
+sudo apt-get install -y csh perl make m4 cpp binutils libtirpc-dev libhdf5-dev
 ewhb fetch-sources --atmosphere --wrf-hydro-version 5.1.2 --output ~/wrf-hydro-packages
 ```
 
@@ -35,7 +35,9 @@ ewhb build-atmosphere \
 
 `--dry-run` 显示版本、源码清单和工作目录。GNU 构建需要 GNU Fortran 9 或更新版本，以及配套的 MPI 和 NetCDF。Intel 构建用 `--compiler-family intel`，载入 `icc`、`ifort`、`mpiicc`、`mpiifort`，并指定与该工具链匹配的 NetCDF。
 
-在 Debian 和 Ubuntu 上，系统 NetCDF 库位于多架构目录。`build-atmosphere` 用配置工具定位库，并在构建目录中创建 WRF 所需的 `lib/` 布局。`--netcdf` 也可以指向自行构建的 NetCDF 或 GNU 离线包中的环境。构建脚本先试编译并运行 Fortran 探针，再编译 GRIB2 库、WRF 和 WPS。
+在 Debian 和 Ubuntu 上，构建工具在工作目录内为系统 NetCDF 创建 WRF 所需的 `lib/` 布局。对 WRF 4.2 和 4.3，它还把 `nc-config --libs` 中缺少的库搜索目录加入 `configure.wrf`。Ubuntu 的 `libhdf5-dev` 在多架构目录下的 `hdf5/serial/` 提供 WRF 所用的 HDF5 库名。用 `build-manifest.json` 中的 `wrf_netcdf_dependency_dirs` 核对搜索路径。
+
+构建脚本先运行 Fortran 探针，再编译 GRIB2 库、WRF 和 WPS。要复现 WSL2 上已完成的 WRF/WPS 可执行文件验证，可把 `--netcdf` 指向 `bootstrap --build-netcdf` 生成的 `<prefix>/gnu_libs`。也可复用同一工具链的 GNU 离线包环境。[验证记录](verified-builds.md#windows-wsl2-x86_64)
 
 使用一个新的构建目录。构建和 NetCDF 路径需要使用不带空格的目录。阶段日志在 `PREFIX/logs/`，依赖路径和构建结果在 `PREFIX/build-manifest.json`。修复失败原因后，用新的 `--prefix` 重跑。
 
@@ -105,7 +107,7 @@ Hydro 源码已放在 `--shared-dir` 时可省略 `--hydro-archives`。已有相
 | Apple Silicon 原生 macOS | 原 GNU 离线包环境 | 通过原生编译和样本解码。5.1.2 先完成 WRF，再用修正后的选项重跑 WPS |
 | Ubuntu ARM64 虚拟机 | 原 GNU 离线包环境 | 通过编译、动态库检查和样本解码。5.1.2 分阶段重跑 WPS，5.2.0 在内存不足后以单进程补齐 WRF，再构建 WPS |
 
-上述普通 WRF/WPS 的 GRIB2 样本包含单时次 2 米气温。Windows WSL2 上已完成 WRF 4.2、WPS 4.2 的 GNU 构建和可执行文件启动，并核对了 WRF-Hydro 5.1.2 的耦合链接。[WSL2 实测记录](verified-builds.md#windows-wsl2-x86_64)
+上述普通 WRF/WPS 的 GRIB2 样本包含单时次 2 米气温。Windows WSL2 上使用自建 NetCDF 完成了 WRF 4.2、WPS 4.2 的 GNU 构建和可执行文件启动，并核对了 WRF-Hydro 5.1.2 的耦合链接。[WSL2 实测记录](verified-builds.md#windows-wsl2-x86_64)
 
 双向耦合在 Apple Silicon GNU 环境使用 NCAR Front Range 算例另外验收。三个版本分别使用表中的 WPS，运行两层嵌套域，水文过程运行在内层域。5.1.2 使用 5.2.0 发布页提供的同一场事件输入。三组均通过 `real.exe`，用两个 MPI 进程完成 12 小时模拟，各写出 13 个时次的 `wrfout` 和 `CHRTOUT_DOMAIN2`，并核对末时次 `RTOUT_DOMAIN2` 的四层土壤含水量。重现算例需使用 [WPS 静态数据](https://www2.mmm.ucar.edu/wrf/site/geog_data.html)中的 `landuse_30s`、`usgs_30s+default` 设置和 NAM 数据对应的 `Vtable.NAM`。
 
