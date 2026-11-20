@@ -4,7 +4,22 @@
 
 ## 准备和运行
 
+### 运行制备好的算例
+
+若算例目录包含 `geo_em.d01.nc`，且 `case.json` 记录了 `geogrid_sha256`，`run-basin` 会核对校验值，从 `ungrib` 和 `metgrid` 开始。将 `--case` 指向解压后的流域目录，并使用相应模型版本的耦合构建。
+
+```bash
+ewhb run-basin --case "$WORK/cases/5.1.2/jing" --build "$WORK/coupled-build" \
+  --output "$WORK/jing-run"
+```
+
+`--geog-data` 可显式选择 WPS 静态数据目录并运行 `geogrid`。自建算例按下文制备地理和水文域。
+
+### 自建算例
+
 按 [WRF/WPS 构建指南](wrf-wps.md) 编译对应版本的耦合程序。用下面的区域静态瓦片和 HydroSHEDS v1 CON 高程，按[流域制备](domain-preparation.md)准备所选版本的水文域。把结果放在 `$WORK/domains/jing` 和 `$WORK/domains/gasconade`。
+
+也可用 `scripts/release/fetch_basin_dem.py --geogrid <geo_em.d01.nc> --cache <瓦片缓存> --output <区域DEM.tif>` 生成覆盖既有 WPS 域的 Copernicus GLO-90 区域高程，再以该 GeoTIFF 设置 `routing.dem`。脚本使用[流域制备环境](domain-preparation.md)，记录瓦片来源和 SHA-256。不同高程数据会影响河网、站点匹配和水文输出。 [Copernicus GLO-90 数据与许可](https://doi.org/10.5270/ESA-c5d3d65)
 
 ### 裁剪高分辨率 MODIS 静态数据
 

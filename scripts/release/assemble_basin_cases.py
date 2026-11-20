@@ -15,6 +15,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 from easy_wrf_hydro_build.atmosphere import ATMOSPHERE_PROFILES, sha256  # noqa: E402
 from easy_wrf_hydro_build.basin import BASINS, DOMAIN_FILES  # noqa: E402
+from easy_wrf_hydro_build.domain import GEO  # noqa: E402
 
 REGIONS = {"jing": (100, 115, 29, 43), "gasconade": (260, 275, 31, 45)}
 
@@ -101,6 +102,10 @@ def assemble(version, domains, forcing, output, cycle, *, download=False):
                      source / "parameter-tables/HYDRO.TBL"):
             if not item.is_file():
                 raise FileNotFoundError(f"Missing prepared domain input: {item}")
+        if "geogrid_sha256" in domain:
+            geo = source / GEO
+            if not geo.is_file() or not geo.stat().st_size or sha256(geo) != domain["geogrid_sha256"]:
+                raise ValueError(f"Prepared domain geogrid is missing or differs from its manifest: {geo}")
         manifests[name] = domain
     requests = {name: gfs_requests(cycle, name) for name in BASINS}
     for name, files in requests.items():
@@ -133,6 +138,9 @@ def assemble(version, domains, forcing, output, cycle, *, download=False):
             "land_cover": domain["land_cover"], "reference": domain["config"]["reference"],
             "station_mapping": domain["station_mapping"],
         }
+        if "geogrid_sha256" in domain:
+            shutil.copyfile(source / GEO, dest / GEO)
+            case["geogrid_sha256"] = domain["geogrid_sha256"]
         (dest / "case.json").write_text(json.dumps(case, indent=2) + "\n", encoding="utf-8")
 
 

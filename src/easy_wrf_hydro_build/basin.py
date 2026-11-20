@@ -9,7 +9,7 @@ import shutil
 import subprocess
 
 from .atmosphere import sha256
-from .domain import _domain_values, _namelist, _number
+from .domain import GEO, _domain_values, _namelist, _number
 
 
 BASINS = ("jing", "gasconade")
@@ -104,11 +104,6 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
               *, geog: Path | None = None, wps_dir: Path | None = None, ranks: int = 1):
     if ranks < 1:
         raise ValueError("--ranks must be positive.")
-    if geog is None:
-        geog = case_dir.parent.parent / "static/WPS_GEOG"
-    if not geog.is_dir():
-        raise ValueError(f"Missing WPS static data directory: {geog}. Use the bundled geography "
-                         "or pass --geog-data with an NCAR WPS_GEOG cache.")
     if output.exists():
         raise ValueError("Choose a fresh output directory to preserve previous model files and logs.")
     case_path = case_dir / "case.json"
@@ -124,6 +119,21 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
         raise ValueError(f"Missing required field domain.{exc.args[0]} in {case_path}.") from exc
     except ValueError as exc:
         raise ValueError(f"Invalid domain in {case_path}. {exc}") from exc
+    prepared_geo = None
+    if geog is None and "geogrid_sha256" in case:
+        prepared_geo = case_dir / GEO
+        if not prepared_geo.is_file() or not prepared_geo.stat().st_size:
+            raise ValueError(f"Missing prepared geogrid file: {prepared_geo}. "
+                             "Restore the case file or pass --geog-data to run geogrid.")
+        if sha256(prepared_geo) != case["geogrid_sha256"]:
+            raise ValueError(f"Incorrect checksum for prepared geogrid: {prepared_geo}")
+    else:
+        if geog is None:
+            geog = case_dir.parent.parent / "static/WPS_GEOG"
+        if not geog.is_dir():
+            raise ValueError(f"Missing WPS static data directory: {geog}. "
+                             "Pass --geog-data with an NCAR WPS_GEOG cache.")
+    wps_stages = ("ungrib", "metgrid") if prepared_geo else ("geogrid", "ungrib", "metgrid")
     build = json.loads((build_dir / "build-manifest.json").read_text())
     if build.get("status") != "compiled" or build.get("coupled_validation") != "linked":
         raise ValueError("Use a completed ewhb build-atmosphere --coupled installation.")
@@ -134,7 +144,7 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
         if not build["wps_dir"]:
             raise ValueError("Pass --wps for a coupled build that reused an existing WPS.")
         wps_dir = Path(build["wps_dir"])
-    for exe in (*(wps_dir / f"{name}.exe" for name in ("geogrid", "ungrib", "metgrid")),
+    for exe in (*(wps_dir / f"{name}.exe" for name in wps_stages),
                 wrf / "main/real.exe", wrf / "main/wrf.exe"):
         if not exe.is_file() or not os.access(exe, os.X_OK):
             raise ValueError(f"Executable missing or inaccessible: {exe}")
@@ -163,7 +173,10 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
     run = output / "run"
     wps.mkdir()
     run.mkdir()
-    (wps / "WPS_GEOG").symlink_to(geog, target_is_directory=True)
+    if prepared_geo:
+        shutil.copyfile(prepared_geo, wps / GEO)
+    else:
+        (wps / "WPS_GEOG").symlink_to(geog, target_is_directory=True)
     (wps / "namelist.wps").write_text(namelist + """&ungrib
  out_format = 'WPS', prefix = 'GFS',
 /
@@ -172,14 +185,16 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
 /
 """, encoding="utf-8")
     for component, table in (("geogrid", "GEOGRID.TBL"), ("metgrid", "METGRID.TBL")):
+        if component not in wps_stages:
+            continue
         (wps / component).mkdir()
         shutil.copyfile(wps_dir / component / (table + ".ARW"), wps / component / table)
     (wps / "Vtable").symlink_to(wps_dir / "ungrib/Variable_Tables/Vtable.GFS")
     for suffix, filename in zip(("AAA", "AAB", "AAC"), files):
         (wps / f"GRIBFILE.{suffix}").symlink_to(case_dir / "GFS" / filename)
-    for name in ("geogrid", "ungrib", "metgrid"):
+    for name in wps_stages:
         _stage([str(wps_dir / f"{name}.exe")], wps, name, "Successful completion")
-    for filename in ("geo_em.d01.nc", *(f"met_em.d01.{time}.nc" for time in times)):
+    for filename in (GEO, *(f"met_em.d01.{time}.nc" for time in times)):
         if not (wps / filename).stat().st_size:
             raise ValueError(f"Empty WPS output: {wps / filename}")
         (run / filename).symlink_to(wps / filename)
@@ -208,6 +223,8 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
         if not (run / name).stat().st_size:
             raise ValueError(f"Empty coupled output: {run / name}")
     report = {"case": case["basin"], "wrf_hydro": case["wrf_hydro"], "ranks": ranks,
+              "geogrid_source": "prepared_case" if prepared_geo else "generated",
+              "geogrid_sha256": sha256(wps / GEO),
               "start_utc": times[0], "end_utc": times[-1], "files": [str(run / name) for name in outputs],
               "status": "completed"}
     (output / "run-manifest.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

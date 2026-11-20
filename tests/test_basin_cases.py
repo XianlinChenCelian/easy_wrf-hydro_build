@@ -36,9 +36,12 @@ def test_case_assembly_uses_selected_cycle_and_checks_local_input(tmp_path):
         for filename in (*DOMAIN_FILES, "Gage_Crosswalk.csv"):
             (domain / "DOMAIN" / filename).touch()
         (domain / "parameter-tables/HYDRO.TBL").touch()
+        grid = domain / "geo_em.d01.nc"
+        grid.write_bytes(name.encode())
         (domain / "domain-manifest.json").write_text(json.dumps({
             "wrf_hydro_version": "5.1.2", "land_cover": {"scheme": "MODIS"},
             "domain": {}, "routing_grid": {}, "config": {"reference": {}}, "station_mapping": {},
+            "geogrid_sha256": sha256(grid),
         }))
         (forcing / name).mkdir(parents=True)
         for filename in filenames:
@@ -55,6 +58,7 @@ def test_case_assembly_uses_selected_cycle_and_checks_local_input(tmp_path):
         case = json.loads((output / name / "case.json").read_text())
         assert case["cycle_utc"] == "2025-02-03T18:00:00"
         assert case["grib2"] == filenames
+        assert case["geogrid_sha256"] == sha256(output / name / "geo_em.d01.nc")
         for filename, source in case["weather_files"].items():
             params = parse_qs(urlsplit(source["url"]).query)
             assert params["dir"] == ["/gfs.20250203/18/atmos"]
@@ -67,6 +71,21 @@ def test_run_basin_rejects_missing_grid_size_before_running(tmp_path):
     output = tmp_path / "run"
     with pytest.raises(ValueError, match=r"Missing required field domain\.e_we .*case\.json"):
         run_basin(tmp_path, tmp_path / "build", output, geog=tmp_path)
+    assert not output.exists()
+
+
+def test_run_basin_checks_prepared_geogrid_before_staging(tmp_path):
+    (tmp_path / "case.json").write_text(json.dumps({
+        "domain": {"e_we": 28, "e_sn": 33, "cell_m": 13800, "ref_lat": 36,
+                   "ref_lon": 107.5, "truelat1": 30, "truelat2": 60},
+        "geogrid_sha256": "0" * 64,
+    }))
+    output = tmp_path / "run"
+    with pytest.raises(ValueError, match=r"Missing prepared geogrid file.*geo_em.d01.nc"):
+        run_basin(tmp_path, tmp_path / "build", output)
+    (tmp_path / "geo_em.d01.nc").write_bytes(b"changed grid")
+    with pytest.raises(ValueError, match="Incorrect checksum for prepared geogrid"):
+        run_basin(tmp_path, tmp_path / "build", output)
     assert not output.exists()
 
 

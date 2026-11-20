@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     basin = subparsers.add_parser("run-basin", help="Run a bundled GFS/WPS and coupled WRF-Hydro basin case.")
     basin.add_argument("--case", required=True, type=Path)
     basin.add_argument("--build", required=True, type=Path)
-    basin.add_argument("--geog-data", type=Path, help="Override the bundled WPS geography with an NCAR cache.")
+    basin.add_argument("--geog-data", type=Path, help="Run geogrid using this NCAR WPS_GEOG directory.")
     basin.add_argument("--output", required=True, type=Path)
     basin.add_argument("--wps", type=Path, help="Override the WPS directory when reusing an existing build.")
     basin.add_argument("--ranks", type=int, default=1)

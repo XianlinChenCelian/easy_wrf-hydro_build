@@ -78,6 +78,13 @@ all 52 `geo_em.d01.nc` variables matched the original runs for both basins
 in each WPS version.
 The [basin guide](coupled-basin-examples.md) has the data and rerun commands.
 
+The prepared-case workflow was also checked for both basins and all three
+versions. The run reused `geo_em.d01.nc` with its SHA-256 and started at
+`ungrib`. The routing grids were rebuilt from Copernicus GLO-90 at the same
+grid ratio and stream initiation threshold. Each run reached 12:00 UTC and
+produced 13 hourly `CHANOBS` files. Both stations had zero simulated flow
+over this 12-hour cold start. The runs verify the execution and output files.
+
 ## Intel classic
 
 Status: **end-to-end verified** on 2026-08-27.
