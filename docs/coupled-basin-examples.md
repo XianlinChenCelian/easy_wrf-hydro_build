@@ -14,12 +14,20 @@ python3 scripts/release/assemble_basin_cases.py --wrf-hydro-version 5.1.2 \
   --domains "$WORK/domains" --forcing "$WORK/gfs-selected" --output "$WORK/cases"
 ```
 
-**复现固定的验证时段**。将归档中的 `f000`、`f006` 和 `f012` 区域文件分别放在 `$WORK/gfs/jing` 和 `$WORK/gfs/gasconade`。下面的命令用本地文件组包，`--cycle` 必须与 GRIB2 的起报时间一致。历史档案入口见 [NOAA NCEI 的 GFS 数据目录](https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast)。
+**复现固定的验证时段**。从 [固定数据 Release](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/releases/tag/basin-data-20261108-r1) 下载 GFS 包及其 `.sha256` 文件。下载到同一目录后核对校验值，再解压到 `$WORK`。macOS 可用 `shasum -a 256` 代替 `sha256sum`。
+
+```bash
+sha256sum -c ewhb-gfs-20261108t00z-r1.tar.gz.sha256
+tar -xzf ewhb-gfs-20261108t00z-r1.tar.gz -C "$WORK"
+```
+
+三种模型版本共用这六份 GFS 输入。按[流域制备](domain-preparation.md)用官方的 WPS 静态地理数据和 HydroSHEDS v1 CON 高程生成所选版本的水文域。包内 `manifest.json` 给出高程文件名和 SHA-256，以及两个流域使用的区域静态瓦片清单。
 
 ```bash
 python3 scripts/release/assemble_basin_cases.py --wrf-hydro-version 5.1.2 \
   --cycle 2026-11-08T00:00:00Z \
-  --domains "$WORK/domains" --forcing "$WORK/gfs" --output "$WORK/cases"
+  --domains "$WORK/domains" \
+  --forcing "$WORK/ewhb-gfs-20261108t00z-r1/gfs" --output "$WORK/cases"
 ```
 
 任选上述一种准备方式，用同一份耦合构建运行两流域。
