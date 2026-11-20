@@ -12,6 +12,9 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
+To run the forcing and parameter tests with their optional dependencies, install
+`python -m pip install -e ".[dev,forcing,aorc,parameters]"` before running pytest.
+
 If editable install is blocked by a local Python packaging issue, use
 `PYTHONPATH` during early development:
 

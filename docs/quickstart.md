@@ -20,6 +20,8 @@ ewhb --help
 
 工具需要 Python 3.9 或更新版本。首次安装时，pip 从 PyPI 获取构建依赖。有学校或单位提供的 PyPI 镜像时，可以给 pip 加 `--index-url https://你的镜像/simple`。
 
+GitHub 连接不稳定时，可以用 `git clone --depth 1` 重试，或在项目页选择 **Code → Download ZIP**。解压后从 `python3 -m venv .venv` 继续。复测特定提交时，下载该提交对应的源码归档。[GitHub 源码归档说明](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives)
+
 ## 2. 下载源码并编译
 
 ```bash

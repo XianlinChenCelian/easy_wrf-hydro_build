@@ -12,6 +12,7 @@ All notable changes to this project are documented here.
 - Standalone parameter experiments with shared forcing, PNG maps, and a local browser workbench.
 - Coupled Gasconade and Jing River examples with GFS forcing and run manifests.
 - `ewhb fetch-sources` downloads one model version and verifies the archive checksums.
+- The coupled case assembler accepts a GFS cycle, downloads available regional inputs on request, and checks the GRIB2 reference time.
 
 ### Fixed
 
@@ -20,6 +21,7 @@ All notable changes to this project are documented here.
 - Only GNU ARM64 builds request Automake's configuration helpers.
 - `doctor` recognizes CMake source trees and finds Intel compilers in the activated environment. `write-env` exports the model run directory.
 - Legacy builds report the first compiler errors. Intel ifx builds select an existing NetCDF installation.
+- The AORC extra selects xarray compatible with Zarr 2. The coupled case runner links all three GFS inputs on Python 3.9.
 
 ### Documentation
 

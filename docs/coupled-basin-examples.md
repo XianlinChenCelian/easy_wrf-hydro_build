@@ -1,14 +1,30 @@
 # GFS 双向耦合流域算例
 
-耦合算例采用泾河与 Gasconade 的区域 GFS GRIB2、WPS 静态瓦片和版本匹配的水文路由输入。可按下文的数据来源与构建说明准备所选版本的算例。泾河沿用张家山站和已确认的矩形建域范围，Gasconade 沿用论文公开的出口流域边界。两个算例使用 MODIS 地类、10 倍水文网格细化和 200 格起河阈值，并启用 Muskingum–Cunge 河段路由。数据时间为 2026-11-08 00 至 12 UTC，供 12 小时流程复现。
+耦合算例采用泾河与 Gasconade 的区域 GFS GRIB2、WPS 静态瓦片和版本匹配的水文路由输入。泾河沿用张家山站和已确认的矩形建域范围，Gasconade 沿用论文公开的出口流域边界。两个算例使用 MODIS 地类、10 倍水文网格细化和 200 格起河阈值，并启用 Muskingum–Cunge 河段路由。项目的 12 小时验证使用 2026-11-08 00 至 12 UTC 的输入。使用新时段时，地理和水文域可以复用，气象输入随所选起报时间变化。
 
 ## 准备和运行
 
-按 [WRF/WPS 构建指南](wrf-wps.md) 编译对应版本的耦合程序，按[流域制备](domain-preparation.md)准备两个使用 MODIS 的域。把两个域制备结果放在 `$WORK/domains/jing` 和 `$WORK/domains/gasconade`，把区域 GRIB2 放在 `$WORK/gfs` 下的对应子目录。
+按 [WRF/WPS 构建指南](wrf-wps.md) 编译对应版本的耦合程序，按[流域制备](domain-preparation.md)准备两个使用 MODIS 的域。把域制备结果放在 `$WORK/domains/jing` 和 `$WORK/domains/gasconade`。
+
+**用 NOAA 最近的预报试跑**。将 `CYCLE` 设为一个已发布 12 小时预报的 UTC 起报时次，可以选择 00、06、12 或 18 UTC。为该时次使用独立的 GRIB2 目录，便于重试时复用已经下完的文件。[NOMADS 可用时段](https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl)
 
 ```bash
 python3 scripts/release/assemble_basin_cases.py --wrf-hydro-version 5.1.2 \
+  --cycle "${CYCLE:?Set CYCLE to an available GFS cycle in UTC}" --download-gfs \
+  --domains "$WORK/domains" --forcing "$WORK/gfs-selected" --output "$WORK/cases"
+```
+
+**复现固定的验证时段**。将归档中的 `f000`、`f006` 和 `f012` 区域文件分别放在 `$WORK/gfs/jing` 和 `$WORK/gfs/gasconade`。下面的命令用本地文件组包，`--cycle` 必须与 GRIB2 的起报时间一致。历史档案入口见 [NOAA NCEI 的 GFS 数据目录](https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast)。
+
+```bash
+python3 scripts/release/assemble_basin_cases.py --wrf-hydro-version 5.1.2 \
+  --cycle 2026-11-08T00:00:00Z \
   --domains "$WORK/domains" --forcing "$WORK/gfs" --output "$WORK/cases"
+```
+
+任选上述一种准备方式，用同一份耦合构建运行两流域。
+
+```bash
 ewhb run-basin --case "$WORK/cases/jing" --build "$WORK/coupled-build" \
   --geog-data "$WPS_GEOG" --output "$WORK/jing-run"
 ewhb run-basin --case "$WORK/cases/gasconade" --build "$WORK/coupled-build" \
@@ -23,7 +39,7 @@ ewhb run-basin --case "$WORK/cases/gasconade" --build "$WORK/coupled-build" \
 
 ## 数据与来源
 
-GFS 采用 NOAA/NCEP 的 0.25° `pgrb2`，取同一起报的 `f000`、`f006`、`f012`，保留区域内的高空层、地面和土壤变量。使用 WPS 自带的 `Vtable.GFS` 解码。每个 GRIB2 的 NOAA NOMADS 请求和 SHA-256 保存在 `cases/<流域>/case.json`。原始在线服务的保留期与包内数据副本独立。 [NOAA GFS 数据说明](https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast) · [NOAA 开放数据与署名](https://registry.opendata.aws/noaa-gfs-bdp-pds/)
+GFS 采用 NOAA/NCEP 的 0.25° `pgrb2`，取同一起报的 `f000`、`f006`、`f012`，保留区域内的高空层、地面和土壤变量。使用 WPS 自带的 `Vtable.GFS` 解码。`cases/<流域>/case.json` 记录起报时间、区域 NOAA NOMADS 请求和实际使用文件的 SHA-256。复现实测结果时，保留这份清单和对应的 GRIB2 副本。[NOAA GFS 数据说明](https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast) · [NOAA 开放数据与署名](https://registry.opendata.aws/noaa-gfs-bdp-pds/)
 
 NCAR 列出的其它高空驱动包括 0.25° GDAS Final Analysis、1° GFS-FNL 和 CFSR/CFSv2。GDAS 与 FNL 的分析场常用 6 小时间隔，同样对应 `Vtable.GFS`。CFSR/CFSv2 的压力层和地面场有各自的 Vtable。NAM 覆盖北美，适用于 Gasconade。 [NCAR WRF 气象输入清单](https://www2.mmm.ucar.edu/wrf/site/input_data.html) · [WPS 用户指南](https://www2.mmm.ucar.edu/wrf/site/documentation/users_guide/wps.html)
 

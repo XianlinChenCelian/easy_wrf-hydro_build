@@ -20,12 +20,29 @@ Both Croton runs produced 168 hourly `CHANOBS` files through
 2011-09-02 00:00 with a readable `streamflow` variable. The coupled basin
 runs are recorded in the [basin examples](coupled-basin-examples.md).
 
-On 2026-11-19, the WSL2 regression at `142b708` built standalone WRF-Hydro
-5.1.2 with the system NetCDF and completed Croton in 29 seconds including
-the build. For WRF 4.2 with `--netcdf /usr`, the NetCDF probe and WRF
-configuration passed. The WRF link completed after the tester added the
-HDF5 search directory to `configure.wrf`. This test covered WRF only.
-The WRF/WPS pair in the table used the source-built NetCDF installation.
+### System NetCDF regression, 2026-11-19
+
+On the same WSL2 laptop, commit [`0d510c2`](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/commit/0d510c2929b7b8efdc630ee1ee9c9b039269de06)
+built all three atmosphere pairs with `--netcdf /usr`. Each build produced
+`wrf.exe`, `real.exe`, `geogrid.exe`, `ungrib.exe`, and `metgrid.exe`.
+All five passed the dynamic-library check.
+
+| WRF | WPS | Build time |
+| --- | --- | --- |
+| 4.2 | 4.2 | 815 s |
+| 4.3 | 4.3 | 898 s |
+| 4.6.1 | 4.6.0 | 812 s |
+
+WRF 4.2 and 4.3 recorded the Ubuntu HDF5 serial directory in
+`wrf_netcdf_dependency_dirs`. The WRF 4.2 and WPS 4.2 build with source-built
+NetCDF also passed in 767 s. The WRF-Hydro 5.1.2 coupled build passed the
+link and launch checks in 891 s. See the [basin examples](coupled-basin-examples.md)
+for runs that also checked atmospheric and hydrologic outputs.
+
+The standalone GNU builds of 5.1.2 and 5.2.0 completed Croton with system
+NetCDF. Both produced 168 hourly gauge files ending at 2011-09-02 00:00.
+The 5.4.0 CMake build passed the executable and library checks. Its WSL2
+Croton run was pending when the data download was interrupted.
 
 ## macOS arm64 versioned builds
 

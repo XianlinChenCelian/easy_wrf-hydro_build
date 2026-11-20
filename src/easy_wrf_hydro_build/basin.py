@@ -131,6 +131,8 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
     start = datetime.fromisoformat(case["cycle_utc"])
     interval = case["interval_seconds"]
     files = case["grib2"]
+    if len(files) != 3 or interval != 21600:
+        raise ValueError("Use three GFS inputs at 6-hour intervals for this case.")
     for filename in files:
         if Path(filename).name != filename:
             raise ValueError(f"Expected a bundled GFS filename: {filename}")
@@ -161,7 +163,7 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
         (wps / component).mkdir()
         shutil.copyfile(wps_dir / component / (table + ".ARW"), wps / component / table)
     (wps / "Vtable").symlink_to(wps_dir / "ungrib/Variable_Tables/Vtable.GFS")
-    for suffix, filename in zip(("AAA", "AAB", "AAC"), files, strict=True):
+    for suffix, filename in zip(("AAA", "AAB", "AAC"), files):
         (wps / f"GRIBFILE.{suffix}").symlink_to(case_dir / "GFS" / filename)
     for name in ("geogrid", "ungrib", "metgrid"):
         _stage([str(wps_dir / f"{name}.exe")], wps, name, "Successful completion")

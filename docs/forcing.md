@@ -4,7 +4,7 @@
 
 ## 已有数据，直接转换
 
-在流域制备环境中运行。单独安装时用 `python -m pip install '.[forcing]'`。读取本地 NOAA Zarr 时用 `python -m pip install '.[forcing,aorc]'`。
+在流域制备环境中运行。读取 NetCDF 时用 `python -m pip install '.[forcing]'`。读取本地 NOAA Zarr v2 或下载 AORC 子集时，用 `python -m pip install '.[forcing,aorc]'` 安装与 Zarr 2 匹配的 xarray 版本。
 
 ```bash
 ewhb prepare-forcing --source era5-land \

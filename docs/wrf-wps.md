@@ -37,7 +37,7 @@ ewhb build-atmosphere \
 
 在 Debian 和 Ubuntu 上，构建工具在工作目录内为系统 NetCDF 创建 WRF 所需的 `lib/` 布局。对 WRF 4.2 和 4.3，它还把 `nc-config --libs` 中缺少的库搜索目录加入 `configure.wrf`。Ubuntu 的 `libhdf5-dev` 在多架构目录下的 `hdf5/serial/` 提供 WRF 所用的 HDF5 库名。用 `build-manifest.json` 中的 `wrf_netcdf_dependency_dirs` 核对搜索路径。
 
-构建脚本先运行 Fortran 探针，再编译 GRIB2 库、WRF 和 WPS。要复现 WSL2 上已完成的 WRF/WPS 可执行文件验证，可把 `--netcdf` 指向 `bootstrap --build-netcdf` 生成的 `<prefix>/gnu_libs`。也可复用同一工具链的 GNU 离线包环境。[验证记录](verified-builds.md#windows-wsl2-x86_64)
+构建脚本先运行 Fortran 探针，再编译 GRIB2 库、WRF 和 WPS。Windows WSL2 上的三个版本组合均已通过系统 NetCDF 构建。也可选择 `bootstrap --build-netcdf` 生成的 `<prefix>/gnu_libs`，或复用同一工具链的 GNU 离线包环境。[验证记录](verified-builds.md#system-netcdf-regression-2026-11-19)
 
 使用一个新的构建目录。构建和 NetCDF 路径需要使用不带空格的目录。阶段日志在 `PREFIX/logs/`，依赖路径和构建结果在 `PREFIX/build-manifest.json`。修复失败原因后，用新的 `--prefix` 重跑。
 
