@@ -9,7 +9,7 @@ import shutil
 import subprocess
 
 from .atmosphere import sha256
-from .domain import _namelist
+from .domain import _domain_values, _namelist, _number
 
 
 BASINS = ("jing", "gasconade")
@@ -111,7 +111,19 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
                          "or pass --geog-data with an NCAR WPS_GEOG cache.")
     if output.exists():
         raise ValueError("Choose a fresh output directory to preserve previous model files and logs.")
-    case = json.loads((case_dir / "case.json").read_text())
+    case_path = case_dir / "case.json"
+    case = json.loads(case_path.read_text())
+    if not isinstance(case, dict) or not isinstance(case.get("domain"), dict):
+        raise ValueError(f"Expected a domain object in {case_path}.")
+    domain = case["domain"]
+    try:
+        for axis in ("e_we", "e_sn"):
+            _number(domain[axis], axis, 3, 10000, integer=True)
+        values = _domain_values(domain)
+    except KeyError as exc:
+        raise ValueError(f"Missing required field domain.{exc.args[0]} in {case_path}.") from exc
+    except ValueError as exc:
+        raise ValueError(f"Invalid domain in {case_path}. {exc}") from exc
     build = json.loads((build_dir / "build-manifest.json").read_text())
     if build.get("status") != "compiled" or build.get("coupled_validation") != "linked":
         raise ValueError("Use a completed ewhb build-atmosphere --coupled installation.")
@@ -143,8 +155,8 @@ def run_basin(case_dir: Path, build_dir: Path, output: Path,
     times = [(start + timedelta(seconds=interval * i)).strftime("%Y-%m-%d_%H:%M:%S")
              for i in range(len(files))]
     # A short relative path also fits the legacy WPS tile filename buffer.
-    namelist = _namelist(case["domain"], case["domain"]["e_we"], case["domain"]["e_sn"], "WPS_GEOG",
-                         "default", start=times[0], end=times[-1], interval=interval)
+    namelist = _namelist(values, domain["e_we"], domain["e_sn"], "WPS_GEOG",
+                         "modis_30s_lake+default", start=times[0], end=times[-1], interval=interval)
 
     output.mkdir(parents=True)
     wps = output / "wps"

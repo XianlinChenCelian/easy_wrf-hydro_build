@@ -13,7 +13,7 @@ from assemble_basin_cases import (
 )
 
 
-RELEASE = "ewhb-gfs-20261108t00z-r1"
+RELEASE = "ewhb-gfs-20261108t00z-r2"
 CYCLE = parse_cycle("2026-11-08T00:00:00Z")
 NOAA_TERMS = "https://www.weather.gov/disclaimer"
 WPS_GEOG = "https://www2.mmm.ucar.edu/wrf/site/access_code/geog_data.html"

@@ -17,8 +17,7 @@ The Intel Classic toolchain used oneAPI 2023.2.4 with Intel MPI 2021.10.
 | WRF 4.2 coupled with WRF-Hydro 5.1.2, GNU | Source build, flat `lib/` layout | Coupler symbols and dynamic libraries checked |
 
 Both Croton runs produced 168 hourly `CHANOBS` files through
-2011-09-02 00:00 with a readable `streamflow` variable. The coupled basin
-runs are recorded in the [basin examples](coupled-basin-examples.md).
+2011-09-02 00:00 with a readable `streamflow` variable.
 
 ### System NetCDF regression, 2026-11-19
 
@@ -36,8 +35,7 @@ All five passed the dynamic-library check.
 WRF 4.2 and 4.3 recorded the Ubuntu HDF5 serial directory in
 `wrf_netcdf_dependency_dirs`. The WRF 4.2 and WPS 4.2 build with source-built
 NetCDF also passed in 767 s. The WRF-Hydro 5.1.2 coupled build passed the
-link and launch checks in 891 s. See the [basin examples](coupled-basin-examples.md)
-for runs that also checked atmospheric and hydrologic outputs.
+link and launch checks in 891 s.
 
 The standalone GNU builds of 5.1.2 and 5.2.0 completed Croton with system
 NetCDF. Both produced 168 hourly gauge files ending at 2011-09-02 00:00.
@@ -59,6 +57,26 @@ The test used macOS 27.0.1, GNU Fortran 15.3.0, OpenMPI 5.0.11, NetCDF-C
 
 The final `streamflow` variable was read from the last NetCDF gauge file for
 each run.
+
+## macOS arm64 coupled basin runs
+
+On Apple Silicon with GNU and one MPI rank, each pair completed the 12-hour
+cold start from 2026-11-08 00 to 12 UTC in both the Jing and Gasconade domains.
+The six runs recorded `wrfinput_d01`, `wrfbdy_d01`, the final `wrfout`, and the
+final `CHRTOUT`, `CHANOBS`, and `RTOUT` files in their run manifests.
+
+| WRF-Hydro | WRF | WPS | Basins completed |
+| --- | --- | --- | --- |
+| 5.1.2 | 4.2 | 4.2 | Jing and Gasconade |
+| 5.2.0 | 4.3 | 4.3 | Jing and Gasconade |
+| 5.4.0 | 4.6.1 | 4.6.0 | Jing and Gasconade |
+
+On 2026-11-20, all six cases completed again using tiles extracted directly
+from the high-resolution NCAR archive. All `geogrid` runs reported
+`MODIFIED_IGBP_MODIS_NOAH` and 21 land categories. The values and masks of
+all 52 `geo_em.d01.nc` variables matched the original runs for both basins
+in each WPS version.
+The [basin guide](coupled-basin-examples.md) has the data and rerun commands.
 
 ## Intel classic
 

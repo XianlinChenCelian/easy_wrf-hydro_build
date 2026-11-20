@@ -4,7 +4,24 @@
 
 ## 准备和运行
 
-按 [WRF/WPS 构建指南](wrf-wps.md) 编译对应版本的耦合程序，按[流域制备](domain-preparation.md)准备两个使用 MODIS 的域。把域制备结果放在 `$WORK/domains/jing` 和 `$WORK/domains/gasconade`。
+按 [WRF/WPS 构建指南](wrf-wps.md) 编译对应版本的耦合程序。用下面的区域静态瓦片和 HydroSHEDS v1 CON 高程，按[流域制备](domain-preparation.md)准备所选版本的水文域。把结果放在 `$WORK/domains/jing` 和 `$WORK/domains/gasconade`。
+
+### 裁剪高分辨率 MODIS 静态数据
+
+两个固定域共用一套 WPS 区域瓦片。土地覆盖使用 `modis_landuse_20class_30s_with_lakes`（30 弧秒），`run-basin` 通过 `modis_30s_lake+default` 明确选择该数据。`geo_em.d01.nc` 中的 `MMINLU` 为 `MODIFIED_IGBP_MODIS_NOAH`，地类数为 21。地形使用 GMTED2010，土壤质地使用 WPS 高分辨率土壤图层，水文地表糙率使用所选 WRF-Hydro 版本的 `HYDRO_MODIS.TBL`。
+
+已有 NCAR 高分辨率压缩包时，直接从压缩包提取两个研究区所需的原始二进制瓦片和 `index`。首次获取时，可将 NCAR 高分辨率压缩包下载到移动硬盘，再调用同一命令。脚本逐文件校验 SHA-256，输出包含周边插值范围的 20 个图层目录，共约 505 MiB，无需解包约 29 GB 的全球原包。已有解压数据时，可用 `--geog-data /path/to/WPS_GEOG` 替代 `--archive`。[NCAR 高分辨率数据](https://www2.mmm.ucar.edu/wrf/site/access_code/geog_data.html#mandatory-static-data) · [固定瓦片校验清单](../examples/domain/wps-geog-modis.sha256)
+
+```bash
+python3 scripts/release/assemble_basin_geog.py \
+  --archive "$WORK/geog_high_res_mandatory.tar.gz" \
+  --output "$WORK/wps-geog-modis"
+export WPS_GEOG="$WORK/wps-geog-modis/WPS_GEOG"
+```
+
+域制备时也使用这个 `WPS_GEOG`，两流域配置中的 `geog_data_res` 可设为 `modis_30s_lake+default`。自建流域可用 [fetch-geog](domain-preparation.md) 准备完整缓存。WPS 使用包含湖泊类别的 MODIS 地表覆盖。水文湖库路由仍由流域配置中的独立选项和湖泊 Shapefile 控制。
+
+### 准备气象输入
 
 **用 NOAA 最近的预报试跑**。将 `CYCLE` 设为一个已发布 12 小时预报的 UTC 起报时次，可以选择 00、06、12 或 18 UTC。为该时次使用独立的 GRIB2 目录，便于重试时复用已经下完的文件。[NOMADS 可用时段](https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl)
 
@@ -14,11 +31,11 @@ python3 scripts/release/assemble_basin_cases.py --wrf-hydro-version 5.1.2 \
   --domains "$WORK/domains" --forcing "$WORK/gfs-selected" --output "$WORK/cases"
 ```
 
-**复现固定的验证时段**。从 [固定数据 Release](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/releases/tag/basin-data-20261108-r1) 下载 GFS 包及其 `.sha256` 文件。下载到同一目录后核对校验值，再解压到 `$WORK`。macOS 可用 `shasum -a 256` 代替 `sha256sum`。
+**复现固定的验证时段**。从 [固定数据 Release](https://github.com/XianlinChenCelian/easy_wrf-hydro_build/releases/tag/basin-data-20261108-r2) 下载 GFS 包及其 `.sha256` 文件。下载到同一目录后核对校验值，再解压到 `$WORK`。macOS 可用 `shasum -a 256` 代替 `sha256sum`。
 
 ```bash
-sha256sum -c ewhb-gfs-20261108t00z-r1.tar.gz.sha256
-tar -xzf ewhb-gfs-20261108t00z-r1.tar.gz -C "$WORK"
+sha256sum -c ewhb-gfs-20261108t00z-r2.tar.gz.sha256
+tar -xzf ewhb-gfs-20261108t00z-r2.tar.gz -C "$WORK"
 ```
 
 三种模型版本共用这六份 GFS 输入。按[流域制备](domain-preparation.md)用官方的 WPS 静态地理数据和 HydroSHEDS v1 CON 高程生成所选版本的水文域。包内 `manifest.json` 给出高程文件名和 SHA-256，以及两个流域使用的区域静态瓦片清单。
@@ -27,7 +44,7 @@ tar -xzf ewhb-gfs-20261108t00z-r1.tar.gz -C "$WORK"
 python3 scripts/release/assemble_basin_cases.py --wrf-hydro-version 5.1.2 \
   --cycle 2026-11-08T00:00:00Z \
   --domains "$WORK/domains" \
-  --forcing "$WORK/ewhb-gfs-20261108t00z-r1/gfs" --output "$WORK/cases"
+  --forcing "$WORK/ewhb-gfs-20261108t00z-r2/gfs" --output "$WORK/cases"
 ```
 
 任选上述一种准备方式，用同一份耦合构建运行两流域。
@@ -43,7 +60,7 @@ ewhb run-basin --case "$WORK/cases/gasconade" --build "$WORK/coupled-build" \
 
 流程会执行 `geogrid.exe → ungrib.exe → metgrid.exe → real.exe → wrf.exe`。输出目录中的 `wps/` 保留 `geo_em.d01.nc` 和三个 `met_em` 时次。`run/` 保留初始场、边界文件、每小时大气输出、河道流量、站点流量和地形路由输出。结束时间和输出文件见 `run-manifest.json`。包内的 `static/WPS_GEOG` 覆盖这两个固定域，自建流域可通过 `--geog-data` 指定完整版 NCAR 缓存。
 
-三个 WRF-Hydro 版本均在 Apple Silicon GNU 环境以单 MPI 进程完成两流域的 12 小时冷启动。5.2.0 和 5.4.0 的构建包含耦合模式读取 `Route_Link.nc` 的修正。
+运行结果见 [macOS 双向耦合验证](verified-builds.md#macos-arm64-coupled-basin-runs)。5.2.0 和 5.4.0 的构建包含耦合模式读取 `Route_Link.nc` 的修正。
 
 ## 数据与来源
 
